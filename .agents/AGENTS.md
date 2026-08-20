@@ -472,9 +472,37 @@ public sitemap. Not ours to fix, worth mentioning to her.
 
 ### Open
 
-- [x] **20 Aug — mobile pass. Committed; deploy record below.**
-      `src/components/media.tsx`, `src/styles/chrome.css`,
-      `src/styles/components.css`, `src/styles/pages.css`.
+- [x] **DEPLOYED 20 Aug — mobile pass.** Commit `6dd2352`, artifact
+      `quadis-6dd2352.tar.gz`, SSM command
+      `256623cc-49c7-422f-8bc9-5515d8e3d32e`, install `Success`.
+      **Shipped from a clean tree** — the first deploy on this project with a
+      version marker that is a real commit rather than a `-dirty` tag.
+      `push.sh` re-applied TLS and its own HTTPS check passed, so the certbot
+      trap in §3b did not bite; the renewal timer reports enabled.
+
+      Verified on production after the deploy, not assumed:
+
+      | Check | Result |
+      |---|---|
+      | `/api/health` | 200 `healthy`, `storage: postgres`, `database: ok` |
+      | `/api/properties` | 200, 9 properties |
+      | `https://www.quadishotels.com/` | 200 |
+      | Live `index-*.css` | **9** `min-height:44px` rules; footer, deal, map and stamp rules all present |
+      | Live `index-*.js` | carries the gate — `prefers-reduced-motion`, `max-width: 768px`, `saveData`, `slow-2g`, and `fetchPriority` |
+
+      > **Not verified: a browser on the live site at a phone viewport.** The
+      > Chrome extension's renderer wedged and did not recover across a tab
+      > reset. The *behaviour* was verified in a browser before the deploy
+      > against identical source — 0 `<video>` elements and 0 mp4 requests at
+      > 375px, `<video>` and its `/videos/Quadis.mp4` source still present at
+      > 1265px — and the shipped bundle is confirmed to contain that logic. But
+      > §2.5 is therefore only **half** satisfied: say so rather than logging
+      > this as a clean browser pass. **Someone should open the live site on an
+      > actual phone and confirm the hero is a still, not video.**
+
+      `/videos/Quadis.mp4` still returns 200 and that is correct — desktop is
+      meant to keep it. The change stops phones *requesting* it, it does not
+      remove the file.
 
       **The finding worth keeping even if the code is thrown away: the home page
       was sending every phone a 5.2 MB video.** `HeroVideoShowcase` renders
