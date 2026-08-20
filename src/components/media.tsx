@@ -139,6 +139,31 @@ interface HeroVideoShowcaseProps {
   posterUrl?: string
 }
 
+/* The conditions under which this device should never be sent the hero video.
+   Kept as a list so the effect below can subscribe to exactly what it tests. */
+const HERO_VIDEO_OFF_QUERIES = ['(prefers-reduced-motion: reduce)', '(max-width: 768px)']
+
+/**
+ * Should the hero video be withheld from this device?
+ *
+ * `/videos/Quadis.mp4` is 5.2 MB and `autoPlay` starts fetching it immediately,
+ * which makes it by far the largest thing the site asks anyone to download —
+ * for a decorative background, above the copy they actually came for. On a
+ * phone on mobile data that is the whole of the mobile performance problem in
+ * one file. The poster it already falls back to is 176 KB, i.e. ~3% of it.
+ *
+ * The connection hints are Chromium-only, so they are read defensively and are
+ * never the only signal — the width query is what carries this on iOS.
+ */
+function heroVideoUnwanted(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
+  if (HERO_VIDEO_OFF_QUERIES.some((q) => window.matchMedia(q).matches)) return true
+  const conn = (navigator as unknown as { connection?: { saveData?: boolean; effectiveType?: string } }).connection
+  if (conn?.saveData) return true
+  if (conn?.effectiveType && /^(slow-2g|2g|3g)$/.test(conn.effectiveType)) return true
+  return false
+}
+
 /**
  * HeroVideoShowcase — Full-screen looping background video for the top banner (§1).
  * Features smooth autoPlay loop and high-res poster fallback.
@@ -148,20 +173,30 @@ export function HeroVideoShowcase({
   posterUrl = '/images/home/hero.webp'
 }: HeroVideoShowcaseProps) {
   const [videoFailed, setVideoFailed] = useState(false)
-  const [reduceMotion, setReduceMotion] = useState(false)
+  /* Computed in the initialiser, NOT in an effect. The previous reduced-motion
+     check started `false` and flipped in useEffect, which runs after the first
+     commit — by then `<video autoPlay>` is mounted and the 5.2 MB fetch is
+     already in flight, so the fallback saved nothing it was meant to save.
+     Reading matchMedia synchronously means the element is never created. */
+  const [skipVideo, setSkipVideo] = useState(heroVideoUnwanted)
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-      setReduceMotion(mq.matches)
-      const handler = (e: MediaQueryListEvent) => setReduceMotion(e.matches)
-      mq.addEventListener('change', handler)
-      return () => mq.removeEventListener('change', handler)
-    }
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    const mqls = HERO_VIDEO_OFF_QUERIES.map((q) => window.matchMedia(q))
+    /* One-way latch. A phone held in landscape is ~844px wide, so re-testing on
+       rotation would start the very download this exists to prevent; once we
+       have decided against the video for a session we stay decided. The
+       listener therefore only ever turns it off — for a desktop window being
+       narrowed, where swapping to the still is free. */
+    const sync = () => setSkipVideo((prev) => prev || heroVideoUnwanted())
+    mqls.forEach((m) => m.addEventListener('change', sync))
+    return () => mqls.forEach((m) => m.removeEventListener('change', sync))
   }, [])
 
-  if (videoFailed || reduceMotion) {
-    return <img className="hero-media" src={posterUrl} alt="Quadis Hotel Showcase" style={{ objectFit: 'cover', width: '100%', height: '100%', position: 'absolute', inset: 0 }} />
+  if (videoFailed || skipVideo) {
+    /* This is the LCP element whenever it renders, so it is fetched at high
+       priority rather than being discovered at normal priority mid-parse. */
+    return <img className="hero-media" src={posterUrl} alt="Quadis Hotel Showcase" fetchPriority="high" style={{ objectFit: 'cover', width: '100%', height: '100%', position: 'absolute', inset: 0 }} />
   }
 
   return (

@@ -129,6 +129,26 @@
 @media (max-width: 900px){ .footer__inner { grid-template-columns: 1fr 1fr; gap: 40px; } }
 @media (max-width: 560px){ .footer__inner { grid-template-columns: 1fr; } .footer__bottom { flex-direction: column; align-items: flex-start; } }
 
+/* Touch targets. Measured on a 375px viewport: the footer nav links were 25px
+   tall and the five social icons were 20x20 — the smallest tappable things on
+   the site, on every single page, and both well under the 44px floor the
+   stepper buttons and the tel:/mailto: rule already observe.
+
+   The row gap goes to 0 on the nav lists at the same time, so the taller links
+   cost ~7px of pitch each rather than ~19px: the height now does the separating
+   that the gap used to. .footer__contact keeps its gap because the address is
+   an <li>, not an <a>, so it gains no height here and would otherwise butt
+   straight up against the email link. */
+@media (max-width: 768px){
+  .footer__links:not(.footer__contact) { gap: 0; }
+  .footer__links a { min-height: 44px; align-items: center; }
+  /* The box grows 20px -> 44px around an icon that stays 20px, so the row is
+     pulled back by half the growth to keep the first icon flush with the
+     container edge it used to line up with. */
+  .footer__social { gap: 4px; margin-left: -12px; }
+  .footer__social a { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+}
+
 /* ============================ WhatsApp FAB (§3) ============================ */
 .wa-fab {
   position: fixed; right: 24px; bottom: 24px; z-index: 80;

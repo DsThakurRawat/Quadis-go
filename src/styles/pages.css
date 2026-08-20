@@ -183,6 +183,12 @@
 .detail-top { padding-top: 40px; }
 .back-link { display: inline-block; margin-bottom: 20px; font-size: 14px; color: var(--text-muted); }
 .back-link:hover { color: var(--gold-deep); }
+/* 24px tall, and it is the only way back out of a hotel page without using the
+   browser's own control. Negative inset keeps the text on the same baseline it
+   sat on before the box grew around it. */
+@media (max-width: 768px){
+  .back-link { min-height: 44px; display: inline-flex; align-items: center; margin-bottom: 10px; margin-left: -4px; padding-inline: 4px; }
+}
 
 .gallery { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 32px; }
 .gallery__main { padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: var(--radius); overflow: hidden; aspect-ratio: 16/11; }
@@ -219,6 +225,11 @@
 .detail-head__addr svg { color: var(--gold-deep); }
 .map-link { color: var(--gold-deep); font-weight: 600; }
 .map-link:hover { color: var(--gold); }
+/* 24px tall, and it hands the guest off to directions — the one link on a hotel
+   page a guest standing on a street corner actually needs to hit first time. */
+@media (max-width: 768px){
+  .map-link { min-height: 44px; display: inline-flex; align-items: center; }
+}
 .detail-head__meta { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .detail-head__rating { display: inline-flex; align-items: center; gap: 6px; color: var(--gold); font-weight: 700; }
 .detail-head__price { font-family: var(--font-display); font-size: 22px; color: var(--text-primary); }
@@ -645,6 +656,11 @@
 .offer-code-text { font-family: monospace; font-weight: 700; color: var(--text-dark); letter-spacing: 0.05em; font-size: 14px; padding-left: 8px; }
 .offer-copy-button { background: var(--bg-dark); color: #fff; font-size: 11px; font-weight: 700; padding: 8px 14px; border-radius: var(--radius); cursor: pointer; transition: background 0.2s; border: none; }
 .offer-copy-button:hover { background: #000; }
+/* 35px tall. This one copies a discount code — a miss costs the guest the
+   offer, so it is worth the extra 9px. */
+@media (max-width: 768px){
+  .offer-copy-button { min-height: 44px; }
+}
 
 /* Happy Clients */
 .happy-clients-container { margin-bottom: 56px; text-align: center; }

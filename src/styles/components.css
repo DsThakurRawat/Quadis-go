@@ -463,6 +463,11 @@ textarea.field__input { min-height: 120px; resize: vertical; line-height: 1.6; }
   color: var(--dark, #1b1a17);
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
+/* 39px tall — these are the virtual tour's primary control, so they are the
+   last thing that should be fiddly on the device most likely to be used. */
+@media (max-width: 768px){
+  .tour-mode-pill { min-height: 44px; }
+}
 .tour-autopilot-ctrl {
   display: flex;
   align-items: center;
@@ -835,6 +840,11 @@ textarea.field__input { min-height: 120px; resize: vertical; line-height: 1.6; }
 .deal-card-fern__btn:hover {
   background: var(--gold);
   color: var(--bg-dark);
+}
+/* 39px tall from its padding alone. inline-flex rather than more padding so the
+   label stays optically centred while the box reaches the 44px touch floor. */
+@media (max-width: 768px){
+  .deal-card-fern__btn { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
 }
 .tour-splitter__img {
   width: 100%;
@@ -1376,6 +1386,12 @@ textarea.field__input { min-height: 120px; resize: vertical; line-height: 1.6; }
   padding: 2px 6px;
   border-radius: 3px;
   white-space: nowrap;
+}
+/* 0.58rem is 9.28px — the smallest type on the site and the only size that is
+   genuinely below legible on a phone rather than merely small. Nudged to 11px
+   here only; the desktop rendering the client signed off is untouched. */
+@media (max-width: 768px){
+  .dest-stamp__badge { font-size: 0.7rem; }
 }
 .dest-stamp__name {
   font-family: var(--font-body);

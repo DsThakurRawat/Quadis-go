@@ -156,7 +156,7 @@ build.
 | Photo bucket | `quadis-hotel-photos` — private, public access blocked, AES256 |
 | DB password | SSM Parameter Store `/quadis/db-password`, SecureString. **Not in this repo, not in the EB-style config trap.** |
 | Health | `curl http://13.234.85.127/healthz` → `ok` |
-| **App** | **DEPLOYED 31 Jul, last shipped 3 Aug** (`quadis-ebc78b6-dirty` — admin PIN work, §4). Frontend + API + Postgres all live on the box. `http://13.234.85.127/` serves the site; `/api/properties` returns 9 seeded properties out of local Postgres |
+| **App** | **DEPLOYED 31 Jul, last shipped 20 Aug** (mobile pass, §4). ⚠️ This line read "last shipped 3 Aug" until 20 Aug, which was **wrong** — the 5 Aug feedback round did ship, proved against production: the bank logos added in `160c78a` return 200 and the live DB carries the migrated GMB ratings (Quadis Sector 51 4.5, Downtown Sec 15 4.0). Second stale-line incident on this file after the Razorpay webhook one; **check a claim here against the box before trusting it.** Frontend + API + Postgres all live on the box. `http://13.234.85.127/` serves the site; `/api/properties` returns 9 seeded properties out of local Postgres |
 | Deploy | `./deploy/build-artifact.sh && ./deploy/push.sh` — artifact to S3, installed via SSM. **No port 22, so no scp/rsync from a laptop, by design** |
 
 ### The deploy, and the four things it had to get right — 31 Jul
@@ -471,6 +471,76 @@ public sitemap. Not ours to fix, worth mentioning to her.
 ## 4. Task board
 
 ### Open
+
+- [x] **20 Aug — mobile pass. Committed; deploy record below.**
+      `src/components/media.tsx`, `src/styles/chrome.css`,
+      `src/styles/components.css`, `src/styles/pages.css`.
+
+      **The finding worth keeping even if the code is thrown away: the home page
+      was sending every phone a 5.2 MB video.** `HeroVideoShowcase` renders
+      `<video autoPlay>` on `/videos/Quadis.mp4`, so the fetch starts
+      immediately, for a decorative background above the fold. It is ~30x the
+      weight of the entire rest of the page and it is the whole of the mobile
+      performance problem in one file. The component already had the fallback it
+      needed — a 176 KB poster — reached only on `onError` or reduced-motion.
+      It is now also taken on `(max-width: 768px)`, Save-Data, and 2g/3g.
+
+      > **Two details that are the difference between this working and merely
+      > looking like it works.**
+      > 1. The decision is made in the `useState` **initialiser**, not an
+      >    effect. The pre-existing reduced-motion check started `false` and
+      >    flipped in `useEffect` — which runs after the first commit, by which
+      >    time `<video autoPlay>` is mounted and the 5.2 MB is already in
+      >    flight. That fallback had never saved a byte for anyone.
+      > 2. The resize listener is a **one-way latch**. A phone in landscape is
+      >    ~844px wide, so re-testing the width query on rotation would start
+      >    exactly the download this exists to prevent.
+
+      Verified in a browser at a 375px viewport: **0 `<video>` elements, 0 mp4
+      requests**, poster served with `fetchpriority=high` as the LCP element. At
+      1265px the `<video>` and its `/videos/Quadis.mp4` source are still there —
+      **desktop is deliberately unchanged.**
+
+      **Touch targets.** Everything interactive now clears the 44px floor that
+      the stepper and the `tel:`/`mailto:` rule already observed. Measured, not
+      guessed, at 375px: footer nav links were **25px** and the five footer
+      social icons **20x20** — the smallest tappable things on the site and on
+      *every* page. Also `.deal-card-fern__btn` 39px, `.offer-copy-button` 35px,
+      `.back-link` 24px, `.map-link` 24px, `.tour-mode-pill` 39px. All scoped to
+      `max-width: 768px`, so the signed-off desktop rendering is untouched.
+      Re-audited clean on `/`, `/hotels`, `/hotels/:slug`, `/banquets`,
+      `/corporate-hotel-booking`, `/virtual-tour`.
+
+      `.dest-stamp__badge` was `0.58rem` = **9.28px**, the only type on the site
+      genuinely below legible rather than merely small. 11.2px on mobile only.
+
+      > **The layout itself was already sound — that is a real result, not a
+      > gap in the check.** Every route was measured for elements crossing the
+      > right edge and **none does**. `.deals-fern-bg` reports 717px wide on a
+      > 375px viewport, but it is the intentional `left/right: -50vw` full-bleed
+      > band and `body { overflow-x: hidden }` clips it: `scrollTo(200, 0)`
+      > leaves `scrollX` at **0**, so the page cannot actually be panned. The
+      > 5 Aug booking-bar fix is holding.
+      >
+      > ⚠️ **But that `overflow-x: hidden` means a real overflow bug would be
+      > invisible to the eye and to a scrollbar.** Anything auditing this in
+      > future must measure element rects against the viewport, not trust
+      > `scrollWidth` or a screenshot.
+
+      Typecheck clean; production build clean and the rules are present in the
+      emitted CSS. **Not verified in a browser: `/restaurant`, `/gallery`,
+      `/contact`, `/about-us`, `/login`** — the extension's renderer wedged
+      partway through and did not recover. Their only finding was the shared
+      footer, which is one component and is verified fixed on six other pages,
+      but that is an inference and is written down here as one.
+
+      Not done, and deliberately: **route-level code splitting.** The bundle is
+      one 471 KB chunk (150 kB gzip), which is ordinary for an SPA and is not a
+      defect. Splitting it would save perhaps 10-15 kB gzip for a guest, while
+      adding a chunk-fetch that can fail on exactly the flaky mobile connection
+      this pass is about — and there is no error boundary in the tree to catch
+      it. Not worth that trade on a live site without being asked.
+
 
 - [x] **RESOLVED — the Razorpay webhook URL was repointed at the live site.**
       Done by Divyansh; **§3b's "still outstanding" line was simply never
