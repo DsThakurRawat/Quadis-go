@@ -14,7 +14,14 @@ const SOCIAL_LINKS = [
 ]
 
 interface FooterLink { label: string; to: string }
+/*
+ * One entry per brand, not per property — five names covering nine hotels.
+ * Amaltas was added on 1 Sep 2026 because it is a sixth brand: every other
+ * property in the group is reachable through a name already on this list, and
+ * that one is not.
+ */
 const HOTELS_LINKS: FooterLink[] = [
+  { label: 'Hotel Amaltas International', to: '/hotels/hotel-amaltas-international' },
   { label: 'Hotel Amar Inn', to: '/hotels/hotel-amar-inn' },
   { label: 'Hotel Amby Inn', to: '/hotels/hotel-amby-inn-lajpat-nagar-ii' },
   { label: 'Hotel Downtown', to: '/hotels/hotel-downtown-east-of-kailash' },

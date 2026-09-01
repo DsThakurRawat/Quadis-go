@@ -49,14 +49,48 @@ describe('GST — 5%, not 12% (client, 5 Aug 2026)', () => {
     expect(7500 / 1.05).toBeCloseTo(7142.86, 2)
   })
 
-  it('quotes every seeded room, on every meal plan, in the 5% slab', () => {
+  /**
+   * Which seeded rooms actually reach the upper slab.
+   *
+   * Until 1 Sep 2026 the answer was "none", and this test asserted exactly that.
+   * Hotel Amaltas International changed it: its Superior is ₹6,000, and All
+   * Meals adds 50%, so the quote is ₹9,000 inclusive — a value of supply of
+   * ₹8,571, comfortably past the ₹7,500 line. It is the first room in the group
+   * to cross it, and 18% on it is correct, not a regression.
+   *
+   * The assertion is therefore an exact set rather than a blanket "all 5%": it
+   * still fails loudly if a rate change quietly pushes another room over, and it
+   * fails just as loudly if the threshold logic starts over-taxing rooms that
+   * belong in the 5% band — which is the bug the ₹7,500 Royal Suite test above
+   * guards from the other side.
+   */
+  it('quotes every seeded room in the 5% slab except the one that genuinely clears the threshold', () => {
+    const luxury: string[] = []
+
     for (const room of seedRoomTypes) {
       const prop = seedProperties.find((p) => p.id === room.property_id)!
       const base = baseRoomRateFor(prop.base_price, room.price_offset)
       for (const plan of PLANS) {
-        expect(gstRatePercentFor(base + mealUpliftFor(plan, base))).toBe(5)
+        const inclusive = base + mealUpliftFor(plan, base)
+        if (gstRatePercentFor(inclusive) === GST_PERCENT_LUXURY) {
+          luxury.push(`${prop.slug}/${room.slug}/${plan}`)
+          // Never 18% on a supply that is actually inside the band.
+          expect(inclusive / (1 + GST_PERCENT_STANDARD / 100))
+            .toBeGreaterThan(GST_LUXURY_THRESHOLD_PER_ROOM_NIGHT)
+        }
       }
     }
+
+    expect(luxury).toEqual(['hotel-amaltas-international/superior-room/All Meals Included'])
+  })
+
+  it('puts the Amaltas Superior in the 5% slab on Room Only and Breakfast', () => {
+    // Only the MAP quote crosses. ₹6,000 alone, and ₹7,500 with breakfast, are
+    // both inside the band — the second by the same ₹7,142.86 margin as the
+    // Royal Suite above, so the two sit on the threshold from opposite sides.
+    expect(gstRatePercentFor(6000)).toBe(5)
+    expect(gstRatePercentFor(7500)).toBe(5)
+    expect(gstRatePercentFor(9000)).toBe(18)
   })
 
   it('splits a total inclusive of 5% into base + tax that add back up', () => {
@@ -103,9 +137,13 @@ describe('Meal plans — percentage of the base room rate (client, 5 Aug 2026)',
     }
   })
 
-  it('applies the same percentage across all nine properties', () => {
+  it('applies the same percentage at every property', () => {
+    // The real invariant is that no two properties share a slug — `room_types.id`
+    // is derived from it and a collision would cross two hotels' inventory. This
+    // used to read `toBe(9)`, which asserted the size of the group instead and
+    // failed the day a tenth hotel was added.
     const slugs = new Set(seedProperties.map((p) => p.slug))
-    expect(slugs.size).toBe(9)
+    expect(slugs.size).toBe(seedProperties.length)
 
     for (const room of seedRoomTypes) {
       const prop = seedProperties.find((p) => p.id === room.property_id)!

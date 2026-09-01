@@ -19,6 +19,17 @@ export const seedProperties: PropertyRecord[] = [
   { id: 'prop-8', slug: 'hotel-downtown-east-of-kailash', lat: 28.555, lng: 77.245, name: 'Hotel Downtown EOK', city: 'New Delhi', address: 'B-14, B Block, East of Kailash, New Delhi, Delhi 110065', map_link: 'https://share.google/3RsBzxkp8xV1e0AuY', phone: '+91 92173 73532', whatsapp: '+91 92173 73532', email: 'stay@quadishotels.com', base_price: 3000, rating: 4.5, is_active: true, weekend_surcharge_percent: 0, extra_adult_percent: 30, child_free_under_age: 8, child_percent: 20, adult_from_age: 13, tier: 'central', tier_label: 'Quadis Central' },
   { id: 'prop-9', slug: 'hotel-amby-inn-lajpat-nagar-ii', lat: 28.57, lng: 77.24, name: 'Hotel Amby Inn', city: 'New Delhi', address: 'M13, Vinoba Puri, Block M, Lajpat Nagar II, Lajpat Nagar, New Delhi, Delhi 110024', map_link: 'https://share.google/pSTT03I5OWszpSj5c', phone: '+91 92173 73532', whatsapp: '+91 92173 73532', email: 'stay@quadishotels.com', base_price: 2500, rating: 3.8, is_active: true, weekend_surcharge_percent: 0, extra_adult_percent: 30, child_free_under_age: 8, child_percent: 20, adult_from_age: 13, tier: 'central', tier_label: 'Quadis Central' },
   { id: 'prop-10', slug: 'hotel-amar-inn', lat: 28.571, lng: 77.2415, name: 'Hotel Amar Inn', city: 'New Delhi', address: 'K-102, Road, near Central Market, Block K, Lajpat Nagar II, Jal Vihar, New Delhi, Delhi 110024', map_link: 'https://share.google/IQLx35cfOmLf93S2o', phone: '+91 92173 73532', whatsapp: '+91 92173 73532', email: 'stay@quadishotels.com', base_price: 3000, rating: 4.3, is_active: true, weekend_surcharge_percent: 0, extra_adult_percent: 30, child_free_under_age: 8, child_percent: 20, adult_from_age: 13, tier: 'central', tier_label: 'Quadis Central' },
+  /*
+   * Added 1 Sep 2026 from the client's new-property brief. `rating` is 4.1,
+   * which she gave us directly rather than via the GMB audit; `lat`/`lng` are
+   * locality-level, as explained on the matching STATIC_HOTELS row in
+   * src/data/hotels.ts — this file and that one must not disagree, since the
+   * API record wins on the live site. `map_link` IS hers, from the brief.
+   *
+   * Contact columns are the group's shared reservations desk, as on every other
+   * property; if this hotel takes its own line, it is a one-field change here.
+   */
+  { id: 'prop-11', slug: 'hotel-amaltas-international', lat: 28.5603, lng: 77.2022, name: 'Hotel Amaltas International', city: 'New Delhi', address: '6, Opposite Sukhmani Hospital, Block W, Green Park Extension, Green Park, New Delhi, Delhi 110016', map_link: 'https://share.google/VkPBBiHgI3Vpgx3y0', phone: '+91 92173 73532', whatsapp: '+91 92173 73532', email: 'stay@quadishotels.com', base_price: 4000, rating: 4.1, is_active: true, weekend_surcharge_percent: 0, extra_adult_percent: 30, child_free_under_age: 8, child_percent: 20, adult_from_age: 13, tier: 'central', tier_label: 'Quadis Central' },
 ]
 
 /**
@@ -78,6 +89,32 @@ const SUPER: RoomTemplate = {
 }
 
 /**
+ * Amaltas International's upper category — the group's first exception to
+ * "upper category 1000 plus in each hotel".
+ *
+ * Her brief prices the Deluxe at ₹4,000 and the Superior at ₹6,000, so the step
+ * is ₹2,000. That is ROYAL's offset with SUPER's shape, and neither template
+ * could be reused: SUPER would have sold it for ₹5,000, and ROYAL would have
+ * priced it right while booking the guest into a "Royal Suite", because
+ * `room_types.id` is derived from the slug. Mirrors SUPERIOR in the frontend's
+ * src/data/hotels.ts, which must quote the same number.
+ */
+const SUPERIOR: RoomTemplate = {
+  slug: 'superior-room',
+  name: 'Superior Room',
+  description: 'An elevated, more generous room with a separate seating area, high-speed Wi-Fi and evening turndown.',
+  size_sqft: '310 sq ft',
+  bed_type: 'King Bed',
+  max_guests: 3,
+  price_offset: 2000,
+  breakfast_offset: 0,
+  all_meals_offset: 0,
+  total_units: 4,
+  available_units: 4,
+  is_available: true,
+}
+
+/**
  * Real key counts, from the client's rate sheet (27 Jul 2026). These replace the
  * placeholder 5/3/2 the templates above still carry as defaults — placeholders
  * that were the standing double-booking risk on this project, since a property
@@ -88,7 +125,13 @@ const SUPER: RoomTemplate = {
  * deliberately seeded LOW, because under-selling loses a booking while
  * over-selling loses a guest who has already paid.
  */
-interface RoomPlan { deluxe: number; super: number; royal?: number }
+/**
+ * `super` became optional on 1 Sep 2026 so a property can sell a Superior
+ * instead of a Super Deluxe. Every pre-existing row still sets it, so nothing
+ * about the nine below changed — but a plan that omits a category must not seed
+ * it with zero keys, which is what a required field would have forced.
+ */
+interface RoomPlan { deluxe: number; super?: number; superior?: number; royal?: number }
 
 const KEYS_BY_SLUG: Record<string, RoomPlan> = {
   // Noida — sheet total 125.
@@ -112,6 +155,15 @@ const KEYS_BY_SLUG: Record<string, RoomPlan> = {
   'hotel-downtown-east-of-kailash': { deluxe: 23, super: 6, royal: 1 }, // 30
   'hotel-amby-inn-lajpat-nagar-ii': { deluxe: 20, super: 3 },           // 23
   'hotel-amar-inn': { deluxe: 12, super: 6, royal: 1 },                  // 19
+
+  // Added 1 Sep 2026. NOT from a rate sheet: the client's brief gives the two
+  // categories and their rates and says nothing about how many keys of each the
+  // property has. These are therefore placeholders of exactly the kind the note
+  // above calls the standing double-booking risk on this project, and they are
+  // set LOW on purpose, for the reason given there — under-selling loses a
+  // booking, over-selling loses a guest who has already paid. Ask her for the
+  // key count and replace both figures before this property goes live.
+  'hotel-amaltas-international': { deluxe: 6, superior: 2 },             // 8 (UNCONFIRMED)
 }
 
 /**
@@ -144,7 +196,8 @@ const roomsFor = (plan: RoomPlan, basePrice: number): RoomTemplate[] => {
   }
   return [
     forProperty(DELUXE, plan.deluxe),
-    forProperty(SUPER, plan.super),
+    ...(plan.super ? [forProperty(SUPER, plan.super)] : []),
+    ...(plan.superior ? [forProperty(SUPERIOR, plan.superior)] : []),
     ...(plan.royal ? [forProperty(ROYAL, plan.royal)] : []),
   ]
 }

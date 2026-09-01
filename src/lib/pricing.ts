@@ -423,11 +423,19 @@ export function computeStayTotal(input: StayPricingInput): number {
  * actually filing at, and the 12% this codebase shipped with is simply out of
  * date — it was correct when it was written.
  *
- * The 18% slab stays, and it is not hypothetical. A Royal Suite at East of
- * Kailash or Amar Inn is ₹5,000 before meals, and All Meals Included adds 50%,
- * so its quote is exactly ₹7,500 — the threshold to the rupee. Under the flat
- * supplements it retired it was ₹6,200 and nowhere near. Deleting the upper slab
- * would under-collect on exactly the bookings worth the most.
+ * The 18% slab stays, and as of 1 Sep 2026 it is no longer hypothetical — one
+ * room in the group now reaches it. Hotel Amaltas International's Superior is
+ * ₹6,000 before meals, and All Meals Included adds 50%, so it quotes ₹9,000
+ * inclusive: a value of supply of ₹8,571, past the line. It is the only such
+ * combination in the portfolio; see the exact-set assertion in
+ * backend/__tests__/pricing.test.ts, which is what will catch the next one.
+ *
+ * The near miss is worth keeping in view too. A Royal Suite at East of Kailash
+ * or Amar Inn is ₹5,000 before meals, so All Meals puts it at exactly ₹7,500 —
+ * the threshold to the rupee, and INSIDE the 5% band once converted to a value
+ * of supply. Under the flat supplements it retired it was ₹6,200 and nowhere
+ * near. So the upper slab must neither be deleted, which would under-collect on
+ * the bookings worth the most, nor applied a rupee too early.
  *
  * These three constants are duplicated in backend/src/lib/pricing.ts, which is
  * authoritative for what the guest is charged. The duplication is deliberate —

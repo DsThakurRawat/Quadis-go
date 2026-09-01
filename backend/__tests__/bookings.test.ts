@@ -1,7 +1,7 @@
 import request from 'supertest'
 import { createApp } from '../src/app'
 import { db } from '../src/db'
-import { seedRoomTypes } from '../src/data/seed'
+import { seedProperties, seedRoomTypes } from '../src/data/seed'
 
 /**
  * Read inventory off the seed rather than hardcoding it. These assertions are
@@ -20,11 +20,16 @@ describe('Phase 1: Core API & Reservation Soft Hold Tests', () => {
     db.initializeInMemorySeed()
   })
 
-  test('GET /api/properties returns exact 9 seeded active properties', async () => {
+  test('GET /api/properties returns every seeded active property', async () => {
+    // Counted off the seed for the same reason keysOf() is: this test is about
+    // the endpoint returning the active set in seed order, not about how many
+    // hotels the group happens to run. It was pinned at 9 and broke the day a
+    // tenth property was added, which told us nothing about the endpoint.
+    const activeCount = seedProperties.filter((p) => p.is_active).length
     const res = await request(app).get('/api/properties')
     expect(res.status).toBe(200)
     expect(res.body.success).toBe(true)
-    expect(res.body.count).toBe(9)
+    expect(res.body.count).toBe(activeCount)
     expect(res.body.data[0].slug).toBe('hotel-quadis-sector-51-noida')
   })
 

@@ -21,8 +21,24 @@ export default function Gallery({ images = [], alt = '' }: { images?: string[]; 
     return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = '' }
   }, [box, images.length])
 
-  // Always reserve 4 thumbnail slots; wrap around images if fewer than 4 are provided so no slot is left as an unpopulated placeholder.
-  const thumbs = Array.from({ length: 4 }, (_, i) => images.length ? images[i % images.length] : undefined)
+  /*
+   * Always reserve 4 thumbnail slots; wrap around images if fewer than 4 are
+   * provided so no slot is left as an unpopulated placeholder.
+   *
+   * The wrap has to be carried into the CLICK as well, not just the render.
+   * The thumb rendered at slot 3 of a 3-image set is images[0], but the button
+   * used to call setActive(3) — and `images[3]` is undefined, so clicking the
+   * last thumbnail replaced the main photo with a grey placeholder and the
+   * lightbox opened on nothing. Storing the wrapped index instead means the
+   * main image follows the thumbnail that was actually clicked.
+   *
+   * Latent until 1 Sep 2026: every gallery on the site had at least four
+   * photos, so no slot ever wrapped. The first venue to ship with three was
+   * Amaltas's banquet hall, and the 3-image fallback in `banquetImages()`
+   * means any venue without its own folder would have hit it too.
+   */
+  const slotFor = (i: number): number => (images.length ? i % images.length : i)
+  const thumbs = Array.from({ length: 4 }, (_, i) => (images.length ? images[slotFor(i)] : undefined))
 
   return (
     <>
@@ -42,8 +58,8 @@ export default function Gallery({ images = [], alt = '' }: { images?: string[]; 
             hasReal ? (
               <button
                 key={i}
-                className={`gallery__thumb ${i === active ? 'is-active' : ''}`}
-                onClick={() => setActive(i)}
+                className={`gallery__thumb ${slotFor(i) === active ? 'is-active' : ''}`}
+                onClick={() => setActive(slotFor(i))}
                 aria-label={`View photo ${i + 1}`}
               >
                 <Photo src={src} fill label={alt} alt={`${alt} thumbnail ${i + 1}`} />

@@ -1,6 +1,7 @@
 import request from 'supertest'
 import { createApp } from '../src/app'
 import { db } from '../src/db'
+import { seedProperties } from '../src/data/seed'
 
 describe('Phase 3: Owner Switchboard & WhatsApp Quick-Commands Suite', () => {
   const app = createApp()
@@ -42,7 +43,9 @@ describe('Phase 3: Owner Switchboard & WhatsApp Quick-Commands Suite', () => {
     expect(typeof res.body.data.metrics.pendingEnquiries).toBe('number')
     expect(typeof res.body.data.metrics.todayRevenue).toBe('number')
     expect(Array.isArray(res.body.data.properties)).toBe(true)
-    expect(res.body.data.properties.length).toBe(9)
+    // Off the seed, not a literal — the dashboard's contract is that it
+    // lists every active property, whatever that number is this month.
+    expect(res.body.data.properties.length).toBe(seedProperties.filter((p) => p.is_active).length)
   })
 
   it('PATCH /api/admin/room-availability toggles inventory availability ([ Sold Out ] vs [ Available ])', async () => {

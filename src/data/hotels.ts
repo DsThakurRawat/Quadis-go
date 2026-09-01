@@ -64,17 +64,22 @@ export const DEFAULT_ROOMS: HotelRoom[] = [
 ]
 
 /**
- * The client's rate sheet (27 Jul 2026) settles the category question: there
- * are three across the group — DELUXE, SUPER and ROYAL — not the five this file
- * used to carry. Every hotel sells Deluxe and Super; only Downtown EOK and Amar
- * Inn sell a Royal, one key each.
+ * The client's rate sheet (27 Jul 2026) settled the category question for the
+ * original nine: three categories — DELUXE, SUPER and ROYAL — not the five this
+ * file used to carry. All nine sell Deluxe and Super; only Downtown EOK and
+ * Amar Inn sell a Royal, one key each.
  *
- * Pricing is uniform, again per the sheet: "Upper category 1000 plus in each
- * hotel". The per-hotel variation is entirely in `price` (the Deluxe rate) —
- * Super is always +1,000 on it and Royal always +2,000, at every property. So
- * these are offsets, not rates, and the sheet's Super and Royal columns fall
- * out of them: Cladis 15 at 1,800 quotes Super at 2,800, EOK at 3,000 quotes
- * Royal at 5,000.
+ * Pricing was uniform, again per the sheet: "Upper category 1000 plus in each
+ * hotel". The per-hotel variation was entirely in `price` (the Deluxe rate) —
+ * Super +1,000 on it and Royal +2,000 — so these are offsets, not rates, and the
+ * sheet's Super and Royal columns fall out of them: Cladis 15 at 1,800 quotes
+ * Super at 2,800, EOK at 3,000 quotes Royal at 5,000.
+ *
+ * Hotel Amaltas International (1 Sep 2026) is the first property that does not
+ * follow that rule, which is why there is now a fourth template below. Read
+ * "uniform" as "uniform across the nine on the sheet", not as a group-wide
+ * invariant a new property can be assumed into: the tenth arrived with its own
+ * rates, and the eleventh may too.
  *
  * Slugs are unchanged on purpose — `room_types.id` is derived from them and
  * `bookings.room_type_id` points at it, so renaming would strand live bookings.
@@ -93,6 +98,37 @@ const DELUXE: HotelRoom = { ...DEFAULT_ROOMS[0]! }
 const ROYAL: HotelRoom = { ...DEFAULT_ROOMS[2]!, basePriceOffset: 2000 }
 
 /**
+ * Amaltas International's upper category, and the first property that does not
+ * follow the group's "+1,000 for the upper category" rule.
+ *
+ * The client's own figures (new-property brief, 1 Sep 2026) are ₹4,000 for the
+ * Deluxe / Deluxe Twin and ₹6,000 for the Superior — a ₹2,000 step, which is
+ * the Royal offset, not the Super Deluxe one. Reusing SUPER would have quoted
+ * ₹5,000 and undercut the rate sheet by a thousand rupees a night; reusing
+ * ROYAL would have got the price right and the category name wrong, and the
+ * slug is what `room_types.id` is derived from, so the name a guest books under
+ * would have been "Royal Suite".
+ *
+ * So it is its own template. Note the offset is the one thing here that is NOT
+ * shared with the group, which is why it is spelt out rather than derived.
+ *
+ * Size and bed are the DEFAULT_ROOMS 'superior-room' figures, i.e. the group's
+ * representative spec — the client sent rates and photos, not a floor plan.
+ * The balcony the default template claims is deliberately dropped from both the
+ * name and the description: nothing in the brief or the photograph shows one.
+ */
+const SUPERIOR: HotelRoom = {
+  id: 'superior-room',
+  name: 'Superior Room',
+  description: 'An elevated, more generous room with a separate seating area, high-speed Wi-Fi and evening turndown.',
+  size: '310 sq ft',
+  bed: 'King Bed',
+  maxGuests: 3,
+  basePriceOffset: 2000,
+  mealOptions: mealOptionsFor(0),
+}
+
+/**
  * Every property is listed now, so the DEFAULT_ROOMS fallback below is only
  * reached by a slug this file has never heard of. Must stay in step with
  * ROOMS_BY_SLUG in backend/src/data/seed.ts, which additionally carries the
@@ -109,6 +145,8 @@ const ROOMS_BY_SLUG: Record<string, HotelRoom[]> = {
   'hotel-downtown-east-of-kailash': [DELUXE, SUPER, ROYAL],
   'hotel-amby-inn-lajpat-nagar-ii': [DELUXE, SUPER],
   'hotel-amar-inn': [DELUXE, SUPER, ROYAL],
+  // Superior, not Super Deluxe — see the SUPERIOR template above.
+  'hotel-amaltas-international': [DELUXE, SUPERIOR],
 }
 
 /**
@@ -146,6 +184,31 @@ export const STATIC_HOTELS: Hotel[] = [
   { slug: 'hotel-downtown-east-of-kailash', coords: { lat: 28.555, lng: 77.245 }, transit: { metro: { name: 'Kailash Colony Metro', value: '5 min walk' }, airport: { name: 'IGI Airport T3', value: '18 km · 35 min' }, rail: { name: 'Nizamuddin Railway Station', value: '4 km' }, landmark: { name: 'ISKCON Temple', note: 'landmark' } }, name: 'Hotel Downtown EOK', area: 'East of Kailash', city: 'New Delhi', address: 'B-14, B Block, East of Kailash, New Delhi, Delhi 110065', price: 3000, rating: 4.5 },
   { slug: 'hotel-amby-inn-lajpat-nagar-ii', coords: { lat: 28.57, lng: 77.24 }, transit: { metro: { name: 'Lajpat Nagar Metro', value: '3 min walk' }, airport: { name: 'IGI Airport T3', value: '19 km · 35 min' }, rail: { name: 'Nizamuddin Railway Station', value: '5 km' }, landmark: { name: 'Central Market', note: 'dining & retail' } }, name: 'Hotel Amby Inn', area: 'Lajpat Nagar', city: 'New Delhi', address: 'M13, Vinoba Puri, Block M, Lajpat Nagar II, Lajpat Nagar, New Delhi, Delhi 110024', price: 2500, rating: 3.8 },
   { slug: 'hotel-amar-inn', coords: { lat: 28.571, lng: 77.2415 }, transit: { metro: { name: 'Lajpat Nagar Metro', value: '4 min walk' }, airport: { name: 'IGI Airport T3', value: '19 km · 35 min' }, rail: { name: 'Nizamuddin Railway Station', value: '5 km' }, landmark: { name: 'Jal Vihar', note: 'neighbourhood' } }, name: 'Hotel Amar Inn', area: 'Lajpat Nagar', city: 'New Delhi', address: 'K-102, Road, near Central Market, Block K, Lajpat Nagar II, Jal Vihar, New Delhi, Delhi 110024', price: 3000, rating: 4.3 },
+  /*
+   * Added 1 Sep 2026 from the client's new-property brief. Three fields on this
+   * record are NOT from her, and each is deliberately conservative rather than
+   * invented to look complete:
+   *
+   *  - `coords` are locality-level for Green Park Extension, not the building.
+   *    Her GMB share link (share.google/VkPBBiHgI3Vpgx3y0) resolves only to a
+   *    knowledge-graph id, /g/11h347q0bq, with no coordinates exposed, so the
+   *    pin is good to a few hundred metres and no better. It is accurate enough
+   *    for NcrLocatorMap, which is schematic and relative; replace it with the
+   *    real pin before anyone relies on it for directions.
+   *  - `transit` carries the two facts that ARE known — Green Park is the metro
+   *    that serves this locality, and "opposite Sukhmani Hospital" is her own
+   *    address line. Walk times, the airport and the railway station are
+   *    omitted rather than estimated: per HotelTransit, a fact we have not
+   *    verified is simply not shown, and a wrong walk time is worse than a
+   *    missing one.
+   *  - `rating` was NOT in the brief and the GMB share link would not serve it
+   *    (it resolves only to knowledge-graph id /g/11h347q0bq, and Google blocks
+   *    automated reads of the panel). 4.1 is the figure the client gave us
+   *    directly on 1 Sep 2026, so it is her number like every other rating in
+   *    this array — not a placeholder. Worth re-checking against the GMB
+   *    listing at the next audit, as the 5 Aug one moved eight of nine.
+   */
+  { slug: 'hotel-amaltas-international', coords: { lat: 28.5603, lng: 77.2022 }, transit: { metro: { name: 'Green Park Metro', note: 'Yellow Line' }, landmark: { name: 'Sukhmani Hospital', note: 'opposite' } }, name: 'Hotel Amaltas International', area: 'Green Park Extension', city: 'New Delhi', address: '6, Opposite Sukhmani Hospital, Block W, Green Park Extension, Green Park, New Delhi, Delhi 110016', price: 4000, rating: 4.1 },
 ]
 
 /**
@@ -163,6 +226,12 @@ export const HOTEL_DISPLAY_ORDER: readonly string[] = [
   'hotel-cladis-sector-15-noida',         // Hotel Cladis Sector 15
   'hotel-quadis-sector-51-noida',         // Hotel Quadis 51
   'hotel-amby-inn-lajpat-nagar-ii',       // Hotel Amby Inn
+  // Added 1 Sep 2026. The client ranked the nine above and has not said where
+  // the tenth belongs, so it is pinned last rather than slotted into her order
+  // on a guess. Listed explicitly all the same: an unranked slug sorts to the
+  // end anyway, but only by falling through orderOf()'s MAX_SAFE_INTEGER, and
+  // an eleventh property would then share that rank and order arbitrarily.
+  'hotel-amaltas-international',          // Hotel Amaltas International
 ]
 
 const orderOf = (slug: string): number => {
@@ -298,6 +367,26 @@ export const BANQUETS: BanquetVenue[] = [
   { slug: 'banquets-at-hotel-amby-inn', name: 'Banquets at Hotel Amby Inn', area: 'Lajpat Nagar', city: 'New Delhi', capacity: 65, hallArea: '4,200 sq ft', catering: 'Veg & Non-veg', parking: 'Valet available' },
   { slug: 'banquets-at-hotel-downtown-eok', name: 'Banquets at Hotel Downtown EOK', area: 'East of Kailash', city: 'New Delhi', capacity: 80, hallArea: '3,600 sq ft', catering: 'Veg & Non-veg', parking: 'Valet available' },
   { slug: 'banquets-at-hotel-downtown-sector-51', name: 'Banquets at Hotel Downtown Sector 51', area: 'Sector 51', city: 'Noida', capacity: 40, hallArea: '5,200 sq ft', catering: 'Veg & Non-veg', parking: 'On-site parking' },
+  // Added 1 Sep 2026. Unlike the three above, every field here is the client's
+  // own — 80 guests, 3,600 sq ft, veg and non-veg, valet — so nothing on this
+  // row is a representative spec. `catering` and `parking` are worded to match
+  // the existing rows rather than quoted from her brief, because BanquetsList
+  // and banquetSeo() render these strings verbatim and a fourth phrasing of
+  // "Vegetarian & Non-Vegetarian Options" would read as a different offering.
+  //
+  // PHOTOGRAPHY IS INTERIM. She sent six hotel photographs and no hall, so
+  // public/images/banquets/banquets-at-hotel-amaltas-international/ holds this
+  // property's own facade, reception and a Deluxe room — copies of the files in
+  // its hotels/ folder. That is deliberate and it is not what should ship long
+  // term: they are the right building but they are not the banquet hall.
+  //
+  // The alternative was worse. banquetImages() falls back to the shared
+  // restaurant/dining pool when a venue has no folder, and that pool's lead
+  // image is a rooftop terrace belonging to another property — so the page
+  // advertised a venue this hotel does not have. Wrong-building beats
+  // wrong-venue, but only until she sends hall photos: drop them into that
+  // folder, delete these three, and nothing in the code changes.
+  { slug: 'banquets-at-hotel-amaltas-international', name: 'Banquets at Hotel Amaltas International', area: 'Green Park Extension', city: 'New Delhi', capacity: 80, hallArea: '3,600 sq ft', catering: 'Veg & Non-veg', parking: 'Valet available' },
 ]
 
 // ₹1,899 / night  (Indian comma grouping)
