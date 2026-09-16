@@ -41,6 +41,14 @@ services:
       # Signs guest sessions.
       - key: SESSION_SECRET
         generateValue: true
+      # ResAvenue channel manager credentials and push URL. Unset = the
+      # /api/ota endpoints answer 503 and no reservation push is attempted.
+      - key: RESAVENUE_OTA_USERNAME
+        sync: false
+      - key: RESAVENUE_OTA_PASSWORD
+        sync: false
+      - key: RESAVENUE_PUSH_URL
+        sync: false
 
   # 2. Quadis Hotels Frontend Static SPA (Vite + React + Vanilla CSS)
   - type: web

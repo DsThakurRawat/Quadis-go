@@ -1,0 +1,8 @@
+.env
+.env.local
+.env.*.local
+!*.example
+bin/
+*.exe
+*.test
+*.prof

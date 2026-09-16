@@ -1,9 +1,0 @@
-/** @type {import('ts-jest').JestConfigWithTsJest} */
-module.exports = {
-  preset: 'ts-jest',
-  testEnvironment: 'node',
-  testMatch: ['**/__tests__/**/*.test.ts'],
-  verbose: true,
-  clearMocks: true,
-  setupFiles: ['<rootDir>/jest.setup.js'],
-};

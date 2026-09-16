@@ -1,0 +1,22 @@
+ResAvenue wala kaam ho gaya hai. Jo PDF aapne bheja tha, uske saare API bana diye hain aur test ho gaye hain — rooms, rates, availability aur bookings dono taraf jaayengi.
+
+Live karne ke liye ResAvenue ki team se ye cheezein chahiye. Aap unko forward kar dijiye, ya unke technical person ka contact de dijiye:
+
+1. Booking push URL — jahan hum confirmed aur cancelled bookings bhejenge (OTA_HotelResNotifRQ). Aur us URL pe koi token ya Authorization header chahiye ya nahi.
+
+2. Booking pull me credentials — guide ke sample me POS block nahi hai, par us response me guest ka naam/phone/email hota hai, isliye bina login ke nahi de sakte. Wo POS block (Username/Password/ID_Context) ya HTTP Basic auth bhej sakte hain ya nahi, confirm karein.
+
+3. ID_Context — wo humein koi code assign karte hain, ya blank rakhna hai.
+
+4. Target — sab kuch "Production" rahega, ya testing ke liye alag value hai.
+
+5. Test/sandbox environment hai ya nahi, aur live se pehle koi certification step hai ya nahi.
+
+6. Unko ek URL per message chahiye ya ek hi URL sabke liye — dono ready hain.
+
+7. Unke technical contact ka naam, email aur number.
+
+Hamara base URL: https://www.quadishotels.com/api/ota/
+API ka username/password unke technical person ko alag se de denge, message me nahi.
+
+Aur aapse ek cheez — ResAvenue pe ye website kis naam se channel ke roop me add hogi, wo confirm kar dijiye taaki unki taraf se mapping usi naam se ho.

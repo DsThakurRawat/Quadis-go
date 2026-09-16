@@ -62,12 +62,16 @@ cleanup() {
 # Stop everything on Ctrl-C, and whenever this script exits for any reason.
 trap cleanup INT TERM EXIT
 
-echo "Quadis dev"
+echo "Quadis-go dev"
 
 if [ "$WHAT" = "all" ] || [ "$WHAT" = "api" ]; then
   free_port "$API_PORT"
-  echo "  API  → http://localhost:${API_PORT}/api"
-  setsid env PORT="$API_PORT" bash -c 'cd "$0/backend" && exec npx ts-node src/server.ts' "$ROOT" &
+  echo "  API (Go) → http://localhost:${API_PORT}/api"
+  if [ -f "$ROOT/backend-go/bin/server" ]; then
+    setsid env PORT="$API_PORT" "$ROOT/backend-go/bin/server" &
+  else
+    setsid env PORT="$API_PORT" bash -c 'cd "$0/backend-go" && exec go run ./cmd/server' "$ROOT" &
+  fi
   PIDS+=($!)
 fi
 

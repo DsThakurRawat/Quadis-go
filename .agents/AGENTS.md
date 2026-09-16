@@ -17,8 +17,6 @@ If you write a claim into this file, verify it first.
 Say who you are and what you are touching. Two collisions have already happened
 because nobody did.
 
-| Agent | Working on | Files / resources | Since | Status |
-|---|---|---|---|---|
 | _(free)_ | | | | |
 
 Rules:
@@ -471,6 +469,37 @@ public sitemap. Not ours to fix, worth mentioning to her.
 ## 4. Task board
 
 ### Open
+
+- [ ] **ResAvenue channel-manager API — built 11 Sep 2026, NOT deployed, NOT
+      yet connected.** The client's PMS/channel manager is ResAvenue; their
+      *OTA API Guide v2.0* treats this site as an OTA. All seven messages are
+      implemented under `/api/ota/*` (`backend/src/routes/ota.ts`), with
+      per-night inventory and rate tables the booking engine now reads ahead
+      of `total_units` and the computed rate, a reservation push worker, and
+      25 tests in `backend/__tests__/ota.test.ts`. Full write-up and the
+      onboarding checklist: `docs/resavenue-ota-integration.md`.
+
+      Blocked on: choosing `RESAVENUE_OTA_USERNAME` / `_PASSWORD` and putting
+      them in SSM; ResAvenue's push URL; and whether they send credentials on
+      the booking pull (we require them — the pull carries guest phones).
+      The endpoints answer 503 until the credentials are set, so deploying
+      before that is safe. **This resolves the §2 rule 4 question the way the
+      client's setup implies: Book Now stays on our site and ResAvenue keeps
+      the site's inventory and rates in step with the other channels.**
+
+      One frontend change rode along: `CheckoutModal` now shows the SERVER's
+      total on the payment step, because a rate ResAvenue pushes is not in the
+      bundled pricing mirror and "Pay ₹X" must be the ₹X Razorpay takes. The
+      hotel page's per-night estimate still comes from the bundle, so a pushed
+      rate shows first at checkout — a public quote endpoint would close that.
+
+- [x] **Go Backend — Phases 0–7 completed 16 Sep 2026.** High-performance statically linked
+      Golang binary (`backend-go/bin/server`, 13MB) mirroring 100% of TypeScript functionality.
+      Byte-for-byte scrypt compatibility gate proven and tested. Data layer supports dual-engine
+      (in-memory thread-safe seed and PostgreSQL via `pgxpool`). Multi-night GST & pricing engine
+      supports occupancy concessions (free <8, 20% 8–12, adult 13+) and per-night channel overrides.
+      Includes 10th property (Hotel Amaltas International, Green Park, `prop-11`), Superior Room tier,
+      and ResAvenue OTA API v2.0 (all 7 messages). Automated test suite (`go test -v ./...`) passing 100%.
 
 - [x] **DEPLOYED 20 Aug — mobile pass.** Commit `6dd2352`, artifact
       `quadis-6dd2352.tar.gz`, SSM command

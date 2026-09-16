@@ -1,0 +1,62 @@
+[
+  {
+    "password": "Password123!",
+    "salt": "0123456789abcdef0123456789abcdef",
+    "derived_hex": "8e072ac49a494964a4debc52d17c12d499a472ae057eb4899d32d0f8d81d4b70e5b9fce17da0ea1514e83c271e1ec7d7be49c55c0965e30fc6a1a352c3bdf1d0",
+    "stored": "scrypt$0123456789abcdef0123456789abcdef$8e072ac49a494964a4debc52d17c12d499a472ae057eb4899d32d0f8d81d4b70e5b9fce17da0ea1514e83c271e1ec7d7be49c55c0965e30fc6a1a352c3bdf1d0"
+  },
+  {
+    "password": "admin_super_secret_pin_2026",
+    "salt": "fedcba9876543210fedcba9876543210",
+    "derived_hex": "96c7955d16fbcd26172a0a0f5257115366df05991028b3b5c3c20123d1098aadec21b319701864f906fb9e814741a2a8722abaa268147d3b84038508c04248f9",
+    "stored": "scrypt$fedcba9876543210fedcba9876543210$96c7955d16fbcd26172a0a0f5257115366df05991028b3b5c3c20123d1098aadec21b319701864f906fb9e814741a2a8722abaa268147d3b84038508c04248f9"
+  },
+  {
+    "password": "123456",
+    "salt": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+    "derived_hex": "bf6bdd1693dc31289e14d0eca9d8dd21d9e5d6945a99a798b2bbd904873d4578962b2471595c04a15459dab8ff124511d0288e7e5d3c60b4a850d8211c4903db",
+    "stored": "scrypt$a1b2c3d4e5f60718293a4b5c6d7e8f90$bf6bdd1693dc31289e14d0eca9d8dd21d9e5d6945a99a798b2bbd904873d4578962b2471595c04a15459dab8ff124511d0288e7e5d3c60b4a850d8211c4903db"
+  },
+  {
+    "password": "",
+    "salt": "ffffffffffffffffffffffffffffffff",
+    "derived_hex": "093dda8befb7cdb893330b530c6c47c6232eadb32dc43c849e9a0ea1c48e8749ec867324d1921cdf48fab848324955f1314b247efabc8fe89307e0de29fd91b6",
+    "stored": "scrypt$ffffffffffffffffffffffffffffffff$093dda8befb7cdb893330b530c6c47c6232eadb32dc43c849e9a0ea1c48e8749ec867324d1921cdf48fab848324955f1314b247efabc8fe89307e0de29fd91b6"
+  },
+  {
+    "password": "hotel🏨amarinn2026",
+    "salt": "e3b0c44298fc1c149afbf4c8996fb924",
+    "derived_hex": "02e1e05514f2df5e29bd720b9e143e3a0a919625391b6fe1db1a9ded5e1af4883a35cbfb35a5855c4b71aa8eb54e048b9e5f04858d8a9c3f59e21b3abe883906",
+    "stored": "scrypt$e3b0c44298fc1c149afbf4c8996fb924$02e1e05514f2df5e29bd720b9e143e3a0a919625391b6fe1db1a9ded5e1af4883a35cbfb35a5855c4b71aa8eb54e048b9e5f04858d8a9c3f59e21b3abe883906"
+  },
+  {
+    "password": "correct horse battery staple",
+    "salt": "11223344556677889900aabbccddeeff",
+    "derived_hex": "8a5e313adce247fe70c5ac22224735e69182cff2d43ae2aef751a5e9183202aa7d6b5bd05154b800a9eb110e3e31f5b90d58eebcbd26ea9c9f0641d2d5083888",
+    "stored": "scrypt$11223344556677889900aabbccddeeff$8a5e313adce247fe70c5ac22224735e69182cff2d43ae2aef751a5e9183202aa7d6b5bd05154b800a9eb110e3e31f5b90d58eebcbd26ea9c9f0641d2d5083888"
+  },
+  {
+    "password": "VeryLongPasswordStringWithSpecialCharacters!@#$%^&*()_+{}[]:;<>?,./~",
+    "salt": "00112233445566778899aabbccddeeff",
+    "derived_hex": "7ec97c4bd6767617de1a1959cea880db8a4a952049471978d22768601d65b2773e9f4cdc0cfd382281427a72cdabc89ae72726f30a22f2e12474c1d75edb45de",
+    "stored": "scrypt$00112233445566778899aabbccddeeff$7ec97c4bd6767617de1a1959cea880db8a4a952049471978d22768601d65b2773e9f4cdc0cfd382281427a72cdabc89ae72726f30a22f2e12474c1d75edb45de"
+  },
+  {
+    "password": "random_pw_0_9201cf6d0e808694",
+    "salt": "2e50db2dcf9c42423aae759102755dce",
+    "derived_hex": "63776630f1e6aeed7c7fe3fdc48e7a6a6468c7bafd5ef89a6c70b9dfab33c810f9bc86f6b7e064c8756d9ab983bf05275c2d8644adf297bd8db31bc70bdf1bed",
+    "stored": "scrypt$2e50db2dcf9c42423aae759102755dce$63776630f1e6aeed7c7fe3fdc48e7a6a6468c7bafd5ef89a6c70b9dfab33c810f9bc86f6b7e064c8756d9ab983bf05275c2d8644adf297bd8db31bc70bdf1bed"
+  },
+  {
+    "password": "random_pw_1_3048926405dc159e",
+    "salt": "740801c768c1a94d769add8c10e3ef0d",
+    "derived_hex": "1b39e72d87191999729600926b2bd5abb7ccf5ac01836b65b393b15fa43112d88015f9f0ccc4b2001dd8665e0373d8de91e12295b2ffdf25ebea4798aa660bb0",
+    "stored": "scrypt$740801c768c1a94d769add8c10e3ef0d$1b39e72d87191999729600926b2bd5abb7ccf5ac01836b65b393b15fa43112d88015f9f0ccc4b2001dd8665e0373d8de91e12295b2ffdf25ebea4798aa660bb0"
+  },
+  {
+    "password": "random_pw_2_65c899ec1d8d4fc7",
+    "salt": "70e9b302cf8a386ae623f0e4eed3aa58",
+    "derived_hex": "9f67e9eee6644fe586b660fa39e1d169aafb3d0bfd3b752397aac78453b76b55d5fe420bd3cea369f2251c3d817e14b5459a6ac49a83a0bb35dae36fb758fdee",
+    "stored": "scrypt$70e9b302cf8a386ae623f0e4eed3aa58$9f67e9eee6644fe586b660fa39e1d169aafb3d0bfd3b752397aac78453b76b55d5fe420bd3cea369f2251c3d817e14b5459a6ac49a83a0bb35dae36fb758fdee"
+  }
+]

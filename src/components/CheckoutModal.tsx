@@ -102,10 +102,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     1,
     Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24))
   )
-  const ratePerRoomNight = totalAmount / (nights * roomsCount)
+  // Once the hold exists, the server's figure is the one Razorpay will charge.
+  // It can differ from the client-side estimate: the ResAvenue channel manager
+  // may have set a rate for these nights that the bundled pricing does not
+  // know about, and "Pay ₹X" must be the ₹X the gateway actually takes.
+  const payable = booking ? Number(booking.total_amount) : totalAmount
+  const ratePerRoomNight = payable / (nights * roomsCount)
   const gstRatePercent = gstRatePercentFor(ratePerRoomNight)
-  const taxableBase = Math.round((totalAmount / (1 + gstRatePercent / 100)) * 100) / 100
-  const gstAmount = Math.round((totalAmount - taxableBase) * 100) / 100
+  const taxableBase = Math.round((payable / (1 + gstRatePercent / 100)) * 100) / 100
+  const gstAmount = Math.round((payable - taxableBase) * 100) / 100
 
   const handleInitiateHold = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -404,7 +409,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
             <div style={styles.sectionTitle}>2. Choose Payment Option</div>
             <p style={{ color: 'var(--text-muted-2)', fontSize: 14, marginBottom: 16 }}>
-              You are paying <strong>{inr(totalAmount)}</strong> to confirm room category <strong>{roomTypeName}</strong>.
+              You are paying <strong>{inr(payable)}</strong> to confirm room category <strong>{roomTypeName}</strong>.
             </p>
 
             <div style={styles.paymentActions}>
@@ -418,7 +423,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   ? 'Confirming payment…'
                   : loading
                     ? 'Opening secure checkout…'
-                    : `Pay ${inr(totalAmount)} securely`}
+                    : `Pay ${inr(payable)} securely`}
               </button>
               <p style={styles.payNote}>
                 {verifying

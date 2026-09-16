@@ -7,7 +7,7 @@
 #
 # WHAT SHIPS, and nothing else:
 #   www/            the built frontend (dist/), including public/ assets
-#   api/            the compiled backend (backend/dist/) + production deps
+#   api/            the compiled Go backend binary (api/server)
 #   nginx/          the real server config and the 63 legacy 301s
 #   systemd/        the API unit, which is what sets NODE_ENV=production
 #
@@ -35,9 +35,9 @@ if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; th
   DIRTY="-dirty"
 fi
 STAGE="$ROOT/dist-artifact/stage"
-OUT="$ROOT/dist-artifact/quadis-${SHA}${DIRTY}.tar.gz"
+OUT="$ROOT/dist-artifact/quadis-go-${SHA}${DIRTY}.tar.gz"
 
-echo "==> Building artifact for ${SHA}${DIRTY}"
+echo "==> Building artifact for Quadis-go (${SHA}${DIRTY})"
 rm -rf "$STAGE" && mkdir -p "$STAGE"/{www,api,nginx,systemd}
 
 # --- frontend -------------------------------------------------------------
@@ -54,28 +54,10 @@ cp -r "$ROOT/dist/." "$STAGE/www/"
 find "$STAGE/www" -maxdepth 1 -name "QuadisLocation*" -delete
 
 # --- backend --------------------------------------------------------------
-echo "==> Building backend"
-( cd backend && npm run build >/dev/null )
-# Preserve the dist/ level. backend/package.json's start script is
-# `node dist/server.js`, and node_modules must sit alongside package.json at
-# api/ so resolution walks up from api/dist/. Flattening dist into api/ makes
-# the unit look for api/dist/server.js and find nothing.
-mkdir -p "$STAGE/api/dist"
-cp -r "$ROOT/backend/dist/." "$STAGE/api/dist/"
-cp "$ROOT/backend/package.json" "$STAGE/api/"
-cp "$ROOT/backend/package-lock.json" "$STAGE/api/" 2>/dev/null || true
-
-# node_modules is deliberately NOT shipped. install.sh runs `npm ci --omit=dev`
-# on the box instead.
-#
-# Two reasons, both learned the hard way:
-#   1. sharp ships platform- and ABI-specific native binaries (AGENTS.md 9).
-#      This artifact is built on Node 22; the box runs Node 20.20.2. Copying
-#      node_modules across that gap gives NODE_MODULE_VERSION errors at
-#      require() time — after systemd has reported the unit "started".
-#   2. It is ~85 MB of the 91 MB artifact. Building deps on the target makes
-#      the upload seconds rather than minutes.
-echo "==> Skipping node_modules (installed on the box — see install.sh)"
+echo "==> Building backend (Go)"
+mkdir -p "$STAGE/api"
+( cd "$ROOT/backend-go" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o "$STAGE/api/server" ./cmd/server )
+echo "==> Go backend compiled into $STAGE/api/server"
 
 # --- config ---------------------------------------------------------------
 cp "$ROOT/deploy/nginx/quadis.conf"            "$STAGE/nginx/"

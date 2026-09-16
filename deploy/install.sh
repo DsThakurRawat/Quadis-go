@@ -14,7 +14,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REGION="${AWS_REGION:-ap-south-1}"
 
-echo "==> Installing Quadis $(cat "$HERE/VERSION" 2>/dev/null || echo unknown)"
+echo "==> Installing Quadis-go $(cat "$HERE/VERSION" 2>/dev/null || echo unknown)"
 
 # --- service user ---------------------------------------------------------
 if ! id quadis >/dev/null 2>&1; then
@@ -31,18 +31,16 @@ find /var/www/quadis -type d -exec chmod 755 {} + -o -type f -exec chmod 644 {} 
 
 # --- backend --------------------------------------------------------------
 mkdir -p /opt/quadis/api /opt/quadis/api/uploads
-# --delete would take node_modules with it, so exclude both it and uploads.
-rsync -a --delete --exclude uploads --exclude node_modules "$HERE/api/" /opt/quadis/api/
+# --delete would take uploads with it, so exclude it.
+rsync -a --delete --exclude uploads "$HERE/api/" /opt/quadis/api/
+[ -f /opt/quadis/api/server ] && chmod 755 /opt/quadis/api/server
 
-# Dependencies are installed HERE, on the target, not shipped in the artifact.
-# sharp compiles against a specific Node ABI and the build host runs a
-# different major version than this box — copying node_modules across that gap
-# fails at require() time, which systemd reports as a started-then-dead unit.
-#
-# npm-20, matching the node-20 the service runs. Bare `npm` is npm-18 here.
-echo "==> Installing production dependencies (npm-20)"
-( cd /opt/quadis/api && /usr/bin/npm-20 ci --omit=dev --no-audit --no-fund ) \
-  || ( cd /opt/quadis/api && /usr/bin/npm-20 install --omit=dev --no-audit --no-fund )
+# If legacy package.json exists, install dependencies; otherwise Go binary is self-contained.
+if [ -f /opt/quadis/api/package.json ]; then
+  echo "==> Installing production dependencies (npm-20)"
+  ( cd /opt/quadis/api && /usr/bin/npm-20 ci --omit=dev --no-audit --no-fund ) \
+    || ( cd /opt/quadis/api && /usr/bin/npm-20 install --omit=dev --no-audit --no-fund )
+fi
 
 chown -R quadis:quadis /opt/quadis
 

@@ -2,7 +2,7 @@
 # The Node API behind nginx's /api/ proxy. Without this unit nothing listens on
 # 127.0.0.1:3001 and every booking, login, enquiry and payment call fails while
 # the site itself renders perfectly — the failure shape of incident 6.
-Description=Quadis Hotels API
+Description=Quadis-go API
 After=network-online.target postgresql.service
 Wants=network-online.target
 Requires=postgresql.service
@@ -34,14 +34,8 @@ Environment=PORT=3001
 # root-owned 0640 so the quadis user can read it and nobody else can.
 EnvironmentFile=/etc/quadis/api.env
 
-# /usr/bin/node-20, not /usr/bin/node.
-#
-# bootstrap.sh installs the nodejs20 package, but Amazon Linux 2023 also ships
-# nodejs18 and registers both in `alternatives` at priority 100 — so bare
-# `node` resolves to v18.20.8 on this box, verified 31 Jul. Pinning the exact
-# binary means a future `dnf update` reshuffling alternatives cannot silently
-# downgrade the runtime under a service that is already running fine.
-ExecStart=/usr/bin/node-20 dist/server.js
+# High-performance compiled Go backend server binary
+ExecStart=/opt/quadis/api/server
 Restart=always
 RestartSec=5
 
