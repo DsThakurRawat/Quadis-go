@@ -31,42 +31,22 @@
 
 Quadis Hotels is a full-stack hospitality platform serving 9+ properties across Noida and New Delhi. The system operates as a unified architecture running on AWS EC2 (`t3.medium`, Amazon Linux 2023):
 
-```
-                                    ┌────────────────────────────────────────────────────────┐
-                                    │                    GUEST / BROWSER                     │
-                                    └───────────┬────────────────────────────────┬───────────┘
-                                                │ HTTPS                          │ HTTPS
-                                                ▼                                ▼
-                                    ┌───────────────────────┐        ┌───────────────────────┐
-                                    │  React 18 SPA (dist)  │        │   Nginx Reverse Proxy │
-                                    └───────────────────────┘        └───────────┬───────────┘
-                                                                                 │
-                                               ┌─────────────────────────────────┴─────────────────────────────────┐
-                                               │ HTTP Loopback (Port 3001)                                         │
-                                               ▼                                                                   ▼
-┌────────────────────────────────────────────────────────────────────────────────┐       ┌───────────────────────────────────┐
-│                           Quadis Go Backend (`backend-go`)                     │       │        ResAvenue Channel Manager  │
-│                                                                                │       │             (OTA Extranet)        │
-│  ┌───────────────────────┐  ┌────────────────────┐  ┌────────────────────────┐ │       └─────────────────┬─────────────────┘
-│  │ Bookings & Holds      │  │ Dynamic Pricing    │  │ ResAvenue OTA Gateway  │◄├─────────────────────────┘
-│  │ State Machine Engine  │  │ & GST Calculator   │  │ (Details/Inv/Rates/Pull│ │  POST /api/ota/* (Fetch, Update, Pull)
-│  └──────────┬────────────┘  └─────────┬──────────┘  └────────┬───────────────┘ │  POST /push (OTA_HotelResNotifRQ)
-│             │                         │                      │                 │
-│  ┌──────────┴────────────┐  ┌─────────┴──────────┐  ┌────────┴───────────────┐ │
-│  │ AI Concierge Service  │  │ Payments & Webhook │  │ WhatsApp Comms Worker  │ │
-│  │ (Gemini + Groq)       │  │ (Razorpay Gateway) │  │ (Meta Cloud API)       │ │
-│  └───────────────────────┘  └────────────────────┘  └────────────────────────┘ │
-└──────────────────────────────────────┬─────────────────────────────────────────┘
-                                       │
-                                       ▼
-                     ┌───────────────────────────────────┐
-                     │ PostgreSQL Database (Local Socket) │
-                     │  - Properties & Room Inventory    │
-                     │  - Confirmed & Held Bookings      │
-                     │  - Room Inventory Days & Overrides│
-                     │  - Room Rate Days & Surcharges    │
-                     │  - Audit Logs & Site Content      │
-                     └───────────────────────────────────┘
+```mermaid
+flowchart TD
+    Guest["Guest / Browser"]
+    ResAvenue["ResAvenue Channel Manager (Extranet)"]
+    Nginx["Nginx Reverse Proxy (:443)"]
+    ReactApp["React 18 SPA (/var/www/quadis)"]
+    GoBackend["Quadis Go Backend (:3001)"]
+    Postgres[("PostgreSQL Database (Local Socket)")]
+    S3[("S3 Storage (Photos & Backups)")]
+
+    Guest -->|"HTTPS :443"| Nginx
+    ResAvenue -->|"POST /api/ota/*"| Nginx
+    Nginx -->|"Static Files"| ReactApp
+    Nginx -->|"Proxy /api/* (:3001)"| GoBackend
+    GoBackend -->|"pgxpool Socket"| Postgres
+    GoBackend -.->|"Photos & Backups"| S3
 ```
 
 ---
@@ -89,30 +69,46 @@ Instead of heavy web frameworks (like Gin or Fiber), we selected **[Chi](https:/
 ### 2.3 Clean Architecture & Domain-Driven Design (DDD)
 The codebase enforces strict separation of concerns across layered boundaries:
 
-```
-┌────────────────────────────────────────────────────────────┐
-│ 1. cmd/server/main.go (Composition Root & Wire-up)         │
-└────────────────────────────┬───────────────────────────────┘
-                             │ Dependency Injection
-                             ▼
-┌────────────────────────────────────────────────────────────┐
-│ 2. internal/api/ (Transport Layer: HTTP Handlers, Routers) │
-└────────────────────────────┬───────────────────────────────┘
-                             │ Calls
-                             ▼
-┌────────────────────────────────────────────────────────────┐
-│ 3. internal/service/ (Business Logic, Pricing, State Mach.)│
-└────────────────────────────┬───────────────────────────────┘
-                             │ Calls Interface
-                             ▼
-┌────────────────────────────────────────────────────────────┐
-│ 4. internal/repository/ (Persistence: Postgres & Memory)   │
-└────────────────────────────┬───────────────────────────────┘
-                             │ Uses
-                             ▼
-┌────────────────────────────────────────────────────────────┐
-│ 5. internal/domain/ (Pure Domain Models & Entities)        │
-└────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph L1["1. Entrypoint"]
+        Main["cmd/server/main.go (Dependency Injection & Wire-up)"]
+    end
+
+    subgraph L2["2. Transport Layer (internal/api)"]
+        Router["Chi Radix Router & Rate Limiters"]
+        Handlers["HTTP Handlers (Bookings, Payments, OTA, Admin, AI)"]
+        Middleware["Auth Middleware (Sessions, Admin PIN, CORS)"]
+    end
+
+    subgraph L3["3. Application Services (internal/service)"]
+        BookingSvc["Booking & Hold Service"]
+        PricingSvc["Stay Pricing & GST Service"]
+        OTASvc["ResAvenue OTA Service & Sync Workers"]
+        PaySvc["Razorpay Payment Service"]
+        AISvc["Multi-Model AI Concierge"]
+        AuthSvc["scrypt Hashing & Session Service"]
+    end
+
+    subgraph L4["4. Persistence Abstraction (internal/repository)"]
+        RepoInterface["Repository Interface"]
+        PGRepo["PostgresStore (pgxpool / SQL)"]
+        MemRepo["MemoryStore (RWMutex Mock / Tests)"]
+    end
+
+    subgraph L5["5. Domain Entities (internal/domain)"]
+        Entities["Property, Room, Booking, RateDay, InventoryDay"]
+    end
+
+    Main --> Router
+    Router --> Handlers
+    Handlers --> Middleware
+    Handlers --> L3
+    L3 --> RepoInterface
+    RepoInterface --> PGRepo
+    RepoInterface --> MemRepo
+    PGRepo --> Entities
+    MemRepo --> Entities
 ```
 
 - **Dependency Inversion**: Handlers never touch SQL or database connection pools directly. They interact solely with Domain Services or Repository interfaces.
@@ -131,35 +127,24 @@ The codebase enforces strict separation of concerns across layered boundaries:
 ### 3.1 Booking State Machine & 15-Minute Soft-Hold Engine
 
 #### State Machine Progression
-```
-                  ┌──────────────────────┐
-                  │   Guest Initiates    │
-                  │   Booking Request    │
-                  └──────────┬───────────┘
-                             │
-                             ▼
-                  ┌──────────────────────┐
-                  │   PENDING_PAYMENT    │ ◄── 15-Minute Soft Hold Locked
-                  └─────┬──────────┬─────┘     Inventory Deducted
-         Payment        │          │
-        Succeeds        │          │ Expired without payment (Worker triggers)
-                        ▼          ▼
-             ┌─────────────┐    ┌─────────────┐
-             │  CONFIRMED  │    │   EXPIRED   │ ──► Inventory Released
-             └──────┬──────┘    └─────────────┘
-      Customer/     │
-      Desk Cancels  ▼
-             ┌─────────────┐
-             │  CANCELLED  │ ──► Inventory Released
-             └─────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING_PAYMENT: Guest Initiates Hold
+    PENDING_PAYMENT --> CONFIRMED: Payment Verified (Razorpay Webhook)
+    PENDING_PAYMENT --> EXPIRED: 15-Min Expiry (Worker Sweeps)
+    CONFIRMED --> CANCELLED: Customer / Desk Cancels
+    EXPIRED --> [*]
+    CANCELLED --> [*]
 ```
 
 #### How Concurrency & Double-Booking Prevention Works
 When a booking is initiated (`POST /api/bookings/initiate`):
 1. The repository calculates available units for the requested room type and date range:
-   $$\text{Available Units} = \text{Room Capacity} - \text{Active Confirmed Units} - \text{Active Held Units}$$
-2. A hold is only valid if $\text{created\_at} > \text{NOW}() - 15\text{ minutes}$.
-3. If $\text{Available Units} < \text{Requested Rooms}$, the hold is rejected immediately with HTTP 409 Conflict.
+   ```text
+   Available Units = Room Capacity - Active Confirmed Units - Active Held Units
+   ```
+2. A hold is only valid if `created_at > NOW() - 15 minutes`.
+3. If `Available Units < Requested Rooms`, the hold is rejected immediately with HTTP 409 Conflict.
 4. If available, a `PENDING_PAYMENT` record is written, locking inventory against competing requests.
 
 #### Hold Expiry Worker (`StartHoldCleanupWorker`)
@@ -180,28 +165,32 @@ When a booking is initiated (`POST /api/bookings/initiate`):
 The pricing engine computes tariffs down to the individual night and guest composition.
 
 #### 1. Baseline Nightly Rate & Meal Plans
-$$\text{Base Tariff} = \text{Property Base Price} + \text{Room Category Offset}$$
+```text
+Base Tariff = Property Base Price + Room Category Offset
+```
 
 Meal plans are derived as a strict percentage of the base room rate (verified client rule):
-- **EP (Room Only)**: $+0\%$
-- **CP (With Breakfast)**: $+25\%$ of Base Tariff
-- **MAP (All Meals Included)**: $+50\%$ of Base Tariff
+- **EP (Room Only)**: `+0%`
+- **CP (With Breakfast)**: `+25%` of Base Tariff
+- **MAP (All Meals Included)**: `+50%` of Base Tariff
 
 #### 2. Weekend Surcharges
-The engine checks each night using `dateutil.IsWeekendNight(night)`. If the night is a Friday or Saturday, the property's configured weekend surcharge percentage (typically $10\text{--}25\%$) is added to the room tariff.
+The engine checks each night using `dateutil.IsWeekendNight(night)`. If the night is a Friday or Saturday, the property's configured weekend surcharge percentage (typically 10% to 25%) is added to the room tariff.
 
 #### 3. Occupancy Rules & Child Concessions
 - **Included Adults**: 2 adults per room.
-- **Extra Adult ($13+$ years)**: $+30\%$ of the room rate per adult per night.
-- **Infants & Toddlers (Under 8 years)**: **Free of charge** ($0\%$).
-- **Children (8 to 12 years)**: Concession rate of $+20\%$ of the room rate per child per night.
+- **Extra Adult (13+ years)**: `+30%` of the room rate per adult per night.
+- **Infants & Toddlers (Under 8 years)**: **Free of charge** (`0%`).
+- **Children (8 to 12 years)**: Concession rate of `+20%` of the room rate per child per night.
 
 #### 4. Indian GST Compliance (Value of Supply Threshold)
 Indian tax law mandates GST based on the net **Value of Supply** (tax-exclusive nightly room tariff):
-$$\text{Value of Supply} = \frac{\text{Gross Rate Per Room Night}}{1 + \text{Standard GST Rate}} = \frac{\text{Gross Rate}}{1.05}$$
+```text
+Value of Supply = Gross Rate Per Room Night / 1.05
+```
 
-- **Standard Slab ($5\%$)**: Applied when $\text{Value of Supply} \le ₹7,500$.
-- **Luxury Slab ($18\%$)**: Applied when $\text{Value of Supply} > ₹7,500$.
+- **Standard Slab (5%)**: Applied when `Value of Supply <= ₹7,500`.
+- **Luxury Slab (18%)**: Applied when `Value of Supply > ₹7,500`.
 - Evaluated per room night rather than on the total invoice, ensuring legal compliance on multi-room, multi-night stays.
 
 #### 5. Channel Manager Overrides (`NightOverrides`)
@@ -214,57 +203,59 @@ If ResAvenue pushes custom nightly rates (`room_rate_days`), the engine applies 
 Quadis implements all 7 messages defined in ResAvenue's *OTA API Guide v2.0*. In this architecture, **Quadis acts as the OTA**.
 
 #### Stable Numerical Code Mapping
-ResAvenue maps entities using short numeric codes ($\le 10$ digits). Quadis derives codes deterministically so they never drift:
+ResAvenue maps entities using short numeric codes (up to 10 digits). Quadis derives codes deterministically so they never drift:
 
 | Level | Derivation Formula | Example | Code |
 |---|---|---|---|
 | **Hotel Code** | Extracted from `prop-{N}` | `prop-7` (Downtown Sec 51) | `7` |
-| **Room Code (`InvTypeCode`)** | $\text{Hotel Code} \times 100 + \text{Category Index}$ | Deluxe Room ($1$) at Hotel $7$ | `701` |
-| **Rate Plan Code (`RatePlanCode`)** | $\text{Room Code} \times 10 + \text{Meal Plan Index}$ | CP Breakfast ($2$) on Room `701` | `7012` |
+| **Room Code (`InvTypeCode`)** | `Hotel Code * 100 + Category Index` | Deluxe Room (1) at Hotel 7 | `701` |
+| **Rate Plan Code (`RatePlanCode`)** | `Room Code * 10 + Meal Plan Index` | CP Breakfast (2) on Room 701 | `7012` |
 
 **Category Indices**: `deluxe-room: 1`, `super-deluxe: 2`, `superior-room: 3`, `royal-suite: 4`.  
 **Meal Plan Indices**: `EP (Room Only): 1`, `CP (With Breakfast): 2`, `MAP (All Meals): 3`.
 
 #### Supported OTA Message Workflows
 
-```
-┌─────────────────────────────────┐                       ┌──────────────────────────────────┐
-│   ResAvenue Channel Manager     │                       │     Quadis Go OTA Controller     │
-└────────────────┬────────────────┘                       └────────────────┬─────────────────┘
-                 │                                                         │
-                 │ 1. OTA_HotelDetailsRQ (Fetch Hotel/Rooms/RatePlans)     │
-                 ├────────────────────────────────────────────────────────►│
-                 │◄────────────────────────────────────────────────────────┤
-                 │    OTA_HotelDetailsRS                                   │
-                 │                                                         │
-                 │ 2. OTA_HotelInventoryRQ (Fetch Inventory / Restrictions)│
-                 ├────────────────────────────────────────────────────────►│
-                 │◄────────────────────────────────────────────────────────┤
-                 │    OTA_HotelInventoryRS                                 │
-                 │                                                         │
-                 │ 3. OTA_HotelInvCountNotifRQ (Update Inventory/StopSell) │
-                 ├────────────────────────────────────────────────────────►│
-                 │◄────────────────────────────────────────────────────────┤
-                 │    OTA_HotelInvCountNotifRS (Success/Failure)           │
-                 │                                                         │
-                 │ 4. OTA_HotelRateRQ (Fetch Rates per Night)              │
-                 ├────────────────────────────────────────────────────────►│
-                 │◄────────────────────────────────────────────────────────┤
-                 │    OTA_HotelRateRS                                      │
-                 │                                                         │
-                 │ 5. OTA_HotelRateAmountNotifRQ (Update Rates/Occupancy)  │
-                 ├────────────────────────────────────────────────────────►│
-                 │◄────────────────────────────────────────────────────────┤
-                 │    OTA_HotelRateAmountNotifRS (Success/Failure)         │
-                 │                                                         │
-                 │ 6. OTA_HotelResNotifRQ (Pull Bookings Window)           │
-                 ├────────────────────────────────────────────────────────►│
-                 │◄────────────────────────────────────────────────────────┤
-                 │    OTA_HotelResNotifRS (Reservations Array)             │
-                 │                                                         │
-                 │ 7. OTA_HotelResNotifRQ (Real-time Push from Quadis)     │
-                 │◄────────────────────────────────────────────────────────┤
-                 │    Quadis PushBooking Worker                            │
+```mermaid
+sequenceDiagram
+    autonumber
+    actor CM as ResAvenue Channel Manager
+    participant Nginx as Nginx (:443)
+    participant OTA as Quadis Go API (:3001)
+    participant DB as PostgreSQL Database
+    actor Guest as Guest / Browser
+
+    Note over CM,OTA: 1. Property Details & Rate Plans Sync
+    CM->>Nginx: POST /api/ota/property-details (OTA_HotelDetailsRQ)
+    Nginx->>OTA: Forward request
+    OTA->>DB: Query properties & rooms
+    DB-->>OTA: Active categories & meal plans
+    OTA-->>CM: 200 OK (OTA_HotelDetailsRS)
+
+    Note over CM,OTA: 2. Inventory & Rates Updates
+    CM->>Nginx: POST /api/ota/inventory/update (OTA_HotelInvCountNotifRQ)
+    Nginx->>OTA: Forward request
+    OTA->>DB: Upsert room_inventory_days
+    OTA-->>CM: 200 OK (Success)
+
+    CM->>Nginx: POST /api/ota/rates/update (OTA_HotelRateAmountNotifRQ)
+    Nginx->>OTA: Forward request
+    OTA->>DB: Upsert room_rate_days
+    OTA-->>CM: 200 OK (Success)
+
+    Note over Guest,DB: 3. Guest Booking & Payment
+    Guest->>OTA: POST /api/bookings/initiate (15-min soft hold)
+    OTA->>DB: Record PENDING_PAYMENT
+    Guest->>OTA: Payment via Razorpay
+    OTA->>DB: Mark CONFIRMED
+
+    Note over OTA,CM: 4. Real-Time Push & Polling Pull
+    OTA->>CM: POST /push (OTA_HotelResNotifRQ: New Booking)
+    CM-->>OTA: 200 OK (Acknowledged)
+    CM->>Nginx: POST /api/ota/bookings/pull (OTA_HotelResNotifRQ)
+    Nginx->>OTA: Forward request
+    OTA->>DB: Fetch modified bookings in window
+    OTA-->>CM: 200 OK (OTA_HotelResNotifRS)
 ```
 
 #### Authentication & Timing-Safe Comparison
@@ -297,7 +288,9 @@ If ResAvenue's platform can only target a single webhook URL, both `POST /api/ot
 - **Order Creation (`POST /api/payments/create-order`)**: Generates Razorpay order IDs linked directly to active booking holds.
 - **Raw-Body HMAC SHA-256 Signature Verification**:
   Nginx passes the raw request buffer. The handler computes:
-  $$\text{Expected Signature} = \text{HMAC-SHA256}(\text{raw\_body}, \text{RAZORPAY\_WEBHOOK\_SECRET})$$
+  ```text
+  Expected Signature = HMAC-SHA256(raw_body, RAZORPAY_WEBHOOK_SECRET)
+  ```
   Evaluated using constant-time comparison against `X-Razorpay-Signature`.
 - **Idempotent Capture**: Webhooks can be delivered multiple times by payment providers. If the target booking is already `CONFIRMED`, the webhook returns HTTP 200 immediately without executing duplicate operations.
 - **Fire-and-Forget Asynchronous Notifications**:
@@ -336,7 +329,7 @@ The concierge provides 24/7 natural-language assistance regarding amenities, roo
 
 ### 3.7 Authentication & Cryptography (scrypt + Admin PIN)
 
-- **User Password Hashing**: Utilizes **Node-compatible scrypt** ($N=16384, r=8, p=1, \text{keyLen}=64$), allowing seamless user account portability between Node.js and Go backends without password resets.
+- **User Password Hashing**: Utilizes **Node-compatible scrypt** (`N = 16384, r = 8, p = 1, keyLen = 64`), allowing seamless user account portability between Node.js and Go backends without password resets.
 - **Admin PIN Verification**: Scrypt-hashed with per-record salts; verified in constant time.
 - **Session Tokens**: 256-bit cryptographically secure pseudorandom tokens stored in HTTP-only, secure, `SameSite=Lax` cookies.
 
