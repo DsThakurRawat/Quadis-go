@@ -163,9 +163,25 @@ func NewRouter(deps RouterDeps) http.Handler {
 				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 			})
 
+			otar.HandleFunc("/inventory/fetch", func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodPost || r.Method == http.MethodPut {
+					otaH.InventoryFetch(w, r)
+					return
+				}
+				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			})
+
 			otar.HandleFunc("/inventory/update", func(w http.ResponseWriter, r *http.Request) {
 				if r.Method == http.MethodPost || r.Method == http.MethodPut {
 					otaH.InventoryUpdate(w, r)
+					return
+				}
+				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			})
+
+			otar.HandleFunc("/rates/fetch", func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodPost || r.Method == http.MethodPut {
+					otaH.RateFetch(w, r)
 					return
 				}
 				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)

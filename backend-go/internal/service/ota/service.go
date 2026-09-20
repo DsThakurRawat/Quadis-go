@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"time"
 
@@ -241,6 +242,274 @@ func (s *OTAService) PushBooking(ctx context.Context, booking *domain.BookingRec
 	errStr := fmt.Sprintf("status code: %d", resp.StatusCode)
 	_ = s.repo.MarkChannelSync(ctx, booking.ID, domain.CMSyncStatusFailed, nil, &errStr)
 	return fmt.Errorf("push failed with HTTP %d", resp.StatusCode)
+}
+
+// FetchInventory fetches per-night sellable inventory and restrictions for rooms
+func (s *OTAService) FetchInventory(ctx context.Context, hotelCode int, roomCodes []int, startDate, endDate string) (map[string]interface{}, error) {
+	propID := fmt.Sprintf("prop-%d", hotelCode)
+	prop, err := s.repo.GetPropertyByID(ctx, propID)
+	if err != nil {
+		return nil, err
+	}
+	if prop == nil {
+		return nil, fmt.Errorf("hotel code %d not found", hotelCode)
+	}
+
+	allRooms, err := s.repo.GetRoomTypesByPropertyID(ctx, prop.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	roomByCode := make(map[int]domain.RoomTypeRecord)
+	for _, r := range allRooms {
+		c := RoomOTACode(prop.ID, r.Slug)
+		roomByCode[c] = r
+	}
+
+	var targetRooms []domain.RoomTypeRecord
+	var roomIDs []string
+	for _, code := range roomCodes {
+		r, ok := roomByCode[code]
+		if !ok {
+			return nil, fmt.Errorf("unknown InvCode %d for hotel %d", code, hotelCode)
+		}
+		targetRooms = append(targetRooms, r)
+		roomIDs = append(roomIDs, r.ID)
+	}
+
+	nights, err := dateutil.NightsBetween(startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+
+	invDays, err := s.repo.GetInventoryDays(ctx, roomIDs, nights)
+	if err != nil {
+		return nil, err
+	}
+	invMap := make(map[string]domain.InventoryDayRecord)
+	for _, d := range invDays {
+		invMap[fmt.Sprintf("%s|%s", d.RoomTypeID, d.StayDate)] = d
+	}
+
+	heldMap, err := s.repo.GetHeldUnitsByNight(ctx, roomIDs, nights)
+	if err != nil {
+		return nil, err
+	}
+
+	var inventories []map[string]interface{}
+	for _, r := range targetRooms {
+		code := RoomOTACode(prop.ID, r.Slug)
+		var nightList []map[string]interface{}
+		for _, n := range nights {
+			rule, hasRule := invMap[fmt.Sprintf("%s|%s", r.ID, n)]
+			cap := r.TotalUnits
+			if hasRule && rule.InvCount != nil {
+				cap = *rule.InvCount
+			}
+			held := heldMap[fmt.Sprintf("%s|%s", r.ID, n)]
+			free := cap - held
+			if free < 0 {
+				free = 0
+			}
+
+			stopSell := !r.IsAvailable
+			closeArr := false
+			closeDep := false
+			cutOff := 0
+			if hasRule {
+				if rule.StopSell {
+					stopSell = true
+				}
+				closeArr = rule.CloseOnArrival
+				closeDep = rule.CloseOnDeparture
+				cutOff = rule.CutOff
+			}
+
+			nightList = append(nightList, map[string]interface{}{
+				"Date":             n,
+				"InvCount":         free,
+				"StopSell":         stopSell,
+				"CloseOnArrival":   closeArr,
+				"CloseOnDeparture": closeDep,
+				"CutOff":           cutOff,
+			})
+		}
+		inventories = append(inventories, map[string]interface{}{
+			"InvCode":   code,
+			"Inventory": nightList,
+		})
+	}
+
+	return map[string]interface{}{
+		"HotelName":   prop.Name,
+		"HotelCode":   fmt.Sprintf("%d", hotelCode),
+		"Inventories": inventories,
+	}, nil
+}
+
+// FetchRates fetches per-night rates for rate plans
+func (s *OTAService) FetchRates(ctx context.Context, hotelCode int, rateCodes []int, startDate, endDate string) (map[string]interface{}, error) {
+	propID := fmt.Sprintf("prop-%d", hotelCode)
+	prop, err := s.repo.GetPropertyByID(ctx, propID)
+	if err != nil {
+		return nil, err
+	}
+	if prop == nil {
+		return nil, fmt.Errorf("hotel code %d not found", hotelCode)
+	}
+
+	allRooms, err := s.repo.GetRoomTypesByPropertyID(ctx, prop.ID)
+	if err != nil {
+		return nil, err
+	}
+	roomBySlug := make(map[string]domain.RoomTypeRecord)
+	for _, r := range allRooms {
+		roomBySlug[r.Slug] = r
+	}
+
+	nights, err := dateutil.NightsBetween(startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+
+	type targetPlan struct {
+		code int
+		room domain.RoomTypeRecord
+		plan domain.MealPlan
+	}
+	var targets []targetPlan
+	var roomIDs []string
+	var plans []domain.MealPlan
+
+	for _, code := range rateCodes {
+		pID, slug, plan, err := ParseRatePlanCode(code)
+		if err != nil || pID != propID {
+			return nil, fmt.Errorf("unknown RateCode %d for hotel %d", code, hotelCode)
+		}
+		room, ok := roomBySlug[slug]
+		if !ok {
+			return nil, fmt.Errorf("unknown room for rate code %d", code)
+		}
+		targets = append(targets, targetPlan{code: code, room: room, plan: plan})
+		roomIDs = append(roomIDs, room.ID)
+		plans = append(plans, plan)
+	}
+
+	rateDays, err := s.repo.GetRateDays(ctx, roomIDs, plans, nights)
+	if err != nil {
+		return nil, err
+	}
+	rateMap := make(map[string]domain.RateDayRecord)
+	for _, rd := range rateDays {
+		rateMap[fmt.Sprintf("%s|%s|%s", rd.RoomTypeID, string(rd.MealPlan), rd.StayDate)] = rd
+	}
+
+	invDays, err := s.repo.GetInventoryDays(ctx, roomIDs, nights)
+	if err != nil {
+		return nil, err
+	}
+	invMap := make(map[string]domain.InventoryDayRecord)
+	for _, id := range invDays {
+		invMap[fmt.Sprintf("%s|%s", id.RoomTypeID, id.StayDate)] = id
+	}
+
+	var ratesOut []map[string]interface{}
+	for _, target := range targets {
+		var rateList []map[string]interface{}
+		basePrice := prop.BasePrice
+		roomOffset := target.room.PriceOffset
+		mealOffset := 0.0
+		switch target.plan {
+		case domain.MealPlanWithBreakfast:
+			mealOffset = (basePrice + roomOffset) * 0.25
+		case domain.MealPlanAllMealsIncluded:
+			mealOffset = (basePrice + roomOffset) * 0.50
+		}
+		nightly := basePrice + roomOffset + mealOffset
+
+		for _, n := range nights {
+			nt, _ := time.Parse(dateutil.DateFormat, n)
+			isWeekend := dateutil.IsWeekendNight(nt)
+			calcRate := nightly
+			if isWeekend {
+				calcRate = nightly * (1.0 + prop.WeekendSurchargePercent/100.0)
+			}
+
+			rd, hasRd := rateMap[fmt.Sprintf("%s|%s|%s", target.room.ID, string(target.plan), n)]
+			inv, hasInv := invMap[fmt.Sprintf("%s|%s", target.room.ID, n)]
+
+			single := calcRate
+			double := calcRate
+			triple := calcRate * 1.30
+			quad := calcRate * 1.60
+			childPercent := 20.0
+			if prop.ChildPercent != nil {
+				childPercent = *prop.ChildPercent
+			}
+			extraAdult := calcRate * (prop.ExtraAdultPercent / 100.0)
+			extraChild := calcRate * (childPercent / 100.0)
+			minStay := 1
+			maxStay := 30
+			stopSell := !target.room.IsAvailable
+
+			if hasRd {
+				if rd.Single != nil {
+					single = *rd.Single
+				}
+				if rd.Double != nil {
+					double = *rd.Double
+				}
+				if rd.Triple != nil {
+					triple = *rd.Triple
+				}
+				if rd.Quad != nil {
+					quad = *rd.Quad
+				}
+				if rd.ExtraAdult != nil {
+					extraAdult = *rd.ExtraAdult
+				}
+				if rd.ExtraChild != nil {
+					extraChild = *rd.ExtraChild
+				}
+				if rd.MinStay != nil {
+					minStay = *rd.MinStay
+				}
+				if rd.MaxStay != nil {
+					maxStay = *rd.MaxStay
+				}
+				if rd.StopSell {
+					stopSell = true
+				}
+			}
+			if hasInv && inv.StopSell {
+				stopSell = true
+			}
+
+			rateList = append(rateList, map[string]interface{}{
+				"Date":       n,
+				"Single":     math.Round(single),
+				"Double":     math.Round(double),
+				"Triple":     math.Round(triple),
+				"Quad":       math.Round(quad),
+				"ExtraPax":   math.Round(extraAdult),
+				"ExtraChild": math.Round(extraChild),
+				"MinStay":    minStay,
+				"MaxStay":    maxStay,
+				"StopSell":   stopSell,
+			})
+		}
+
+		ratesOut = append(ratesOut, map[string]interface{}{
+			"RateCode": target.code,
+			"Rate":     rateList,
+		})
+	}
+
+	return map[string]interface{}{
+		"HotelName": prop.Name,
+		"HotelCode": fmt.Sprintf("%d", hotelCode),
+		"Rates":     ratesOut,
+	}, nil
 }
 
 // StartChannelSyncWorker periodically retries pushing pending channel bookings

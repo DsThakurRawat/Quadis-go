@@ -158,6 +158,156 @@ func (h *OTAHandler) PropertyDetails(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *OTAHandler) posEcho(msg map[string]interface{}) map[string]interface{} {
+	pos, _ := msg["POS"].(map[string]interface{})
+	if pos == nil {
+		return map[string]interface{}{
+			"Username":   "",
+			"Password":   "",
+			"ID_Context": "",
+		}
+	}
+	user, _ := pos["Username"].(string)
+	if user == "" {
+		if req, ok := pos["RequestorID"].(map[string]interface{}); ok {
+			user, _ = req["User"].(string)
+		}
+	}
+	idCtx, _ := pos["ID_Context"].(string)
+	if idCtx == "" {
+		if req, ok := pos["RequestorID"].(map[string]interface{}); ok {
+			idCtx, _ = req["ID_Context"].(string)
+		}
+	}
+	return map[string]interface{}{
+		"Username":   user,
+		"Password":   "",
+		"ID_Context": idCtx,
+	}
+}
+
+// InventoryFetch handles OTA_HotelInventoryRQ -> /inventory/fetch
+func (h *OTAHandler) InventoryFetch(w http.ResponseWriter, r *http.Request) {
+	var body map[string]interface{}
+	if err := ParseJSON(r, &body); err != nil {
+		JSON(w, http.StatusOK, h.statusResponse("OTA_HotelInventoryRS", "Failure", "Invalid JSON"))
+		return
+	}
+
+	msg, _ := body["OTA_HotelInventoryRQ"].(map[string]interface{})
+	if msg == nil {
+		msg = body
+	}
+
+	if code, remark := h.authenticate(r, msg); code != http.StatusOK {
+		JSON(w, code, h.statusResponse("OTA_HotelInventoryRS", "Failure", remark))
+		return
+	}
+
+	hotelCode := 0
+	if hc, ok := msg["HotelCode"].(float64); ok {
+		hotelCode = int(hc)
+	}
+
+	var roomCodes []int
+	if rcs, ok := msg["InvCodes"].([]interface{}); ok {
+		for _, v := range rcs {
+			if n, ok := v.(float64); ok {
+				roomCodes = append(roomCodes, int(n))
+			}
+		}
+	} else if rc, ok := msg["InvCode"].(float64); ok {
+		roomCodes = append(roomCodes, int(rc))
+	}
+
+	startDate, _ := msg["Start"].(string)
+	if startDate == "" {
+		startDate, _ = msg["StartDate"].(string)
+	}
+	endDate, _ := msg["End"].(string)
+	if endDate == "" {
+		endDate, _ = msg["EndDate"].(string)
+	}
+	if endDate == "" {
+		endDate = startDate
+	}
+
+	data, err := h.otaService.FetchInventory(r.Context(), hotelCode, roomCodes, startDate, endDate)
+	if err != nil {
+		JSON(w, http.StatusOK, h.statusResponse("OTA_HotelInventoryRS", "Failure", err.Error()))
+		return
+	}
+
+	data["POS"] = h.posEcho(msg)
+	data["TimeStamp"] = time.Now().UTC().Format(time.RFC3339)
+	data["EchoToken"] = msg["EchoToken"]
+
+	JSON(w, http.StatusOK, map[string]interface{}{
+		"OTA_HotelInventoryRS": data,
+	})
+}
+
+// RateFetch handles OTA_HotelRateRQ -> /rates/fetch
+func (h *OTAHandler) RateFetch(w http.ResponseWriter, r *http.Request) {
+	var body map[string]interface{}
+	if err := ParseJSON(r, &body); err != nil {
+		JSON(w, http.StatusOK, h.statusResponse("OTA_HotelRateRS", "Failure", "Invalid JSON"))
+		return
+	}
+
+	msg, _ := body["OTA_HotelRateRQ"].(map[string]interface{})
+	if msg == nil {
+		msg = body
+	}
+
+	if code, remark := h.authenticate(r, msg); code != http.StatusOK {
+		JSON(w, code, h.statusResponse("OTA_HotelRateRS", "Failure", remark))
+		return
+	}
+
+	hotelCode := 0
+	if hc, ok := msg["HotelCode"].(float64); ok {
+		hotelCode = int(hc)
+	}
+
+	var rateCodes []int
+	if rcs, ok := msg["RateCodes"].([]interface{}); ok {
+		for _, v := range rcs {
+			if n, ok := v.(float64); ok {
+				rateCodes = append(rateCodes, int(n))
+			}
+		}
+	} else if rc, ok := msg["RateCode"].(float64); ok {
+		rateCodes = append(rateCodes, int(rc))
+	}
+
+	startDate, _ := msg["Start"].(string)
+	if startDate == "" {
+		startDate, _ = msg["StartDate"].(string)
+	}
+	endDate, _ := msg["End"].(string)
+	if endDate == "" {
+		endDate, _ = msg["EndDate"].(string)
+	}
+	if endDate == "" {
+		endDate = startDate
+	}
+
+	data, err := h.otaService.FetchRates(r.Context(), hotelCode, rateCodes, startDate, endDate)
+	if err != nil {
+		JSON(w, http.StatusOK, h.statusResponse("OTA_HotelRateRS", "Failure", err.Error()))
+		return
+	}
+
+	data["POS"] = h.posEcho(msg)
+	data["TimeStamp"] = time.Now().UTC().Format(time.RFC3339)
+	data["EchoToken"] = msg["EchoToken"]
+
+	JSON(w, http.StatusOK, map[string]interface{}{
+		"OTA_HotelRateRS": data,
+	})
+}
+
 // InventoryUpdate handles OTA_HotelInvCountNotifRQ -> /inventory/update
 func (h *OTAHandler) InventoryUpdate(w http.ResponseWriter, r *http.Request) {
 	var body map[string]interface{}
@@ -408,8 +558,14 @@ func (h *OTAHandler) Dispatch(w http.ResponseWriter, r *http.Request) {
 		case "OTA_HotelDetailsRQ":
 			h.PropertyDetails(w, r)
 			return
+		case "OTA_HotelInventoryRQ":
+			h.InventoryFetch(w, r)
+			return
 		case "OTA_HotelInvCountNotifRQ":
 			h.InventoryUpdate(w, r)
+			return
+		case "OTA_HotelRateRQ":
+			h.RateFetch(w, r)
 			return
 		case "OTA_HotelRateAmountNotifRQ":
 			h.RateUpdate(w, r)
@@ -424,7 +580,7 @@ func (h *OTAHandler) Dispatch(w http.ResponseWriter, r *http.Request) {
 		"OTA_ErrorRS": map[string]interface{}{
 			"TimeStamp": time.Now().UTC().Format(time.RFC3339),
 			"Status":    "Failure",
-			"Remark":    "Unrecognised message. Expected one of: OTA_HotelDetailsRQ, OTA_HotelInvCountNotifRQ, OTA_HotelRateAmountNotifRQ, OTA_HotelResNotifRQ",
+			"Remark":    "Unrecognised message. Expected one of: OTA_HotelDetailsRQ, OTA_HotelInventoryRQ, OTA_HotelInvCountNotifRQ, OTA_HotelRateRQ, OTA_HotelRateAmountNotifRQ, OTA_HotelResNotifRQ",
 		},
 	})
 }
